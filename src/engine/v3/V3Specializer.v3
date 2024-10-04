@@ -1,0 +1,110 @@
+class SpecializerInterpreter extends V3Interpreter {
+	def startFun(func: WasmFunction) -> this {
+		// TODO: the compiler will ideally not visitLocalDecl for locals that
+		//       arent used at runtime, so figure that out
+		this.codeptr.iterate_local_codes(pushLocals);
+		for (i < func.decl.num_ex_slots) values.push(Values.REF_NULL); // init legacy EH slots
+		frame.pc = codeptr.pos; // update pc after decoding locals
+	}
+
+	def setCodePtr(codePtr: CodePtr) -> this {
+		this.codeptr = codeptr;
+	}
+
+	def peekn(n: int) -> Range<Value> {
+		return values.peekn(n);
+	}
+}
+
+class SpecializerSPC extends SinglePassCompiler {
+	new(xenv: SpcExecEnv, masm: MacroAssembler, regAlloc: RegAlloc, extensions: Extension.set, limits: Limits) super(xenv, masm, regalloc, extensions, limits) {}
+
+	def setCodePtr(codeptr: CodePtr) -> this {
+		// this.codeptr = codeptr;
+	}
+}
+
+class V3Specializer {
+	// interpreter.codeptr == codeptr == compiler.it.codeptr
+	// this might be a pain bc interpreter/compiler each will mutate
+	// it a lot
+	var codeptr: CodePtr;
+
+	var interpreter: SpecializerInterpreter; // executes thru runWasmCode()
+	var compiler: SinglePassCompiler;
+
+	// runtime vals should be REF_NULL
+	new(func: WasmFunction, args: Range<Value>) {
+		def code = func.decl.cur_bytecode;
+		codeptr.reset(code, 0, code.length);
+
+		interpreter = SpecializerInterpreter.new().reset(func).bind(args); // inits interpreter.codeptr
+		interpreter.setCodePtr(codeptr);
+		compiler.setCodePtr(codeptr);
+
+		interpreter.startFun(func);
+		// compiler.state.reset(...)
+		// TODO: it feels like we should get to the end of the function with the
+		// interpreter before doing anything with the SPC, so that we can figure
+		// out what's actually needed for layout etc.
+
+		// really the issue is that we don't know the number of locals until the interpreter
+		// runs through the function, and I'm not sure if the SPC relies on having that info
+		// while compiling the body
+
+		// This also seems maybe conceptually simpler? Instead of interleaved stages
+		// it's just sequential, but it might be annoying with (especially partial) loop unrolling
+
+		// it almost feels like I should just make a `fn specialize: WasmFunction -> WasmFunction`
+		// things that would have to change
+		// - num_locals
+		// - cur_bytecode
+		// - sig? depending on how we tie things together & also recursion
+		//  	- so probably ignore it for now
+
+		// Overall:
+		// 1. fn specialize(f: WasmFunction, args: Range<Value>) -> WasmFunction
+		// 	Loop:
+		// 		try to exec instr
+		// 		if it's unknown
+		// 			maybe add a local
+		// 			rewrite the bytecode // TODO: how?
+		// 2. just compile that straight up? and rewrite fn name etc. to tie it together
+
+		// how to rewrite the bytecode? (without making a new bytecode IR)
+		// - could emit an ip sidetable of sorts that indicates changes to the instruction, or if it should be skipped
+		// 	- type OpMutation { case Nop, case Rewrite(local_substs, global_substs, mem_substs), case Loop(???) }
+		// - then, override visit_* calls  
+
+		def opcode = codeptr.read_opcode();
+	}
+
+	def canExecOn(operands: Array<Value>) {
+		for (op in operands) if (op.isNull()) return false;
+		return true;
+	}
+
+	def specOp(pc: int, opcode: Opcode) {
+		var operands: Range<Value>;
+		match (opcode) {
+			// all instrs that just look at top
+			BR_IF, IF, DROP => operands = interpreter.peekn(1);
+			// binary instrs
+			I32Add, I32Mul => operands = interpreter.peekn(2);
+			_ => {}
+		}
+
+		if (canExecOn(operands) /* && some_heuristic() */ ) {
+			interpreter.execOp(pc, opcode);
+		} else {
+			// 1. 
+		}
+	}
+}
+
+class V3SpecializerStrategy extends ExecutionStrategy {
+	def call(func: Function, args: Range<Value>) -> Result {
+		// assume that there's no stack switching whatever, so this is certainly the start of a function
+		def specializer = V3Specializer.new(func, args);
+	}
+}

@@ -1,0 +1,23 @@
+def parseArg(s: string) -> Value {
+	return Value.I32(s[0] - 48u32);
+}
+
+def main(args: Array<string>) -> int {
+	def programArgs: Array<string> = Arrays.range(args, 1, args.length);
+	def path: string = args[0];
+
+	def locals: Array<Value> = Arrays.map(programArgs, parseArg);
+	System.puts("Args: ");
+	for (l in locals) {
+		System.puti(int.!(Value.I32.!(l).val));
+		System.puts(" ");
+	}
+	System.puts("\n");
+
+	def engine = Engine.new();
+	def result = engine.loadWasmFile(path);
+	def module = FileLoadResult.Ok.!(result).module;
+
+	// var spec = V3Specializer.new(null, locals);
+	return 0;
+}
