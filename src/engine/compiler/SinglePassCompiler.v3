@@ -1555,6 +1555,24 @@ type SpcVal(flags: byte, reg: Reg, const: int) #unboxed {
 	}
 }
 
+component SpcVals {
+	def fromConstValue(val: Value) -> SpcVal {
+		def flags = SpcConsts.kindToFlags(Values.kind(val)) | IS_CONST;
+		def reg = NO_REG;
+		var rep: int;
+		match (val) { // TODO: think about this more
+			I31(val) => rep = int.view(val);
+			I32(val) => rep = int.view(val);
+			I64(val) => rep = int.view(val);
+			F32(val) => rep = int.view(val);
+			F64(val) => rep = int.view(val);
+			V128(low, high) => rep = 0;
+			Ref(val) => rep = 0; // panic?
+		}
+		return SpcVal(flags, reg, rep);
+	}
+}
+
 // An entry in the abstract control stack.
 class SpcControl {
 	var opcode: byte;
@@ -2103,8 +2121,13 @@ class MoveNode {
 	var dstNext: MoveNode;	// next in a list of successors
 }
 
+type SpecialArg {
+	case Const(val: Value);
+	case Dyn;
+}
+
 class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(spc.xenv, spc.masm, spc.regAlloc, spc.extensions, spc.limits) {
-	def special_gen0(module: Module, func: FuncDecl, constArgs: Range<Value>) -> bool {
+	def special_gen0(module: Module, func: FuncDecl, args: Range<SpecialArg>) -> bool {
 		if (Trace.compiler) OUT.put1("==== begin compile specialized: %q ========================", func.render(module.names, _)).ln();
 		var before_code_bytes = masm.curCodeBytes();
 		var before_data_bytes = masm.curDataBytes();
@@ -2124,6 +2147,20 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 		// Initialize parameters, locals, and first control stack entry.
 		var end_label = masm.newLabel(func.cur_bytecode.length);
 		state.reset(sig, end_label);
+
+		assert2(args.length == sig.params.length, "got %d specialize args, expected %d", args.length, sig.params.length);
+		// constify args
+		for (i < args.length) {
+			match (args[i]) {
+				Const(arg) => {
+					def spcv = SpcVals.fromConstValue(arg);
+					state.set(u32.!(i), spcv.flags, spcv.reg, spcv.const);
+				}
+				Dyn => {}
+			}
+		}
+		// TODO: load args into V3Interpreter stack
+
 		state.num_locals = func.num_locals;
 
 		// Emit prologue, which allocates the frame and initializes various registers.
@@ -2140,6 +2177,7 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 
 		// Emit instructions.
 		while (it.more() && success) {
+			// TODO: try run V3Interpreter on const stuff
 			if (Trace.compiler) traceOpcodeAndStack(false);
 			last_probe = 0;
 			masm.source_loc = it.pc;
