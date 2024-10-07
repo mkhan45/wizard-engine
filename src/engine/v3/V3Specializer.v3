@@ -1,3 +1,5 @@
+// doesnt compile
+
 class SpecializerInterpreter extends V3Interpreter {
 	def startFun(func: WasmFunction) -> this {
 		// TODO: the compiler will ideally not visitLocalDecl for locals that
