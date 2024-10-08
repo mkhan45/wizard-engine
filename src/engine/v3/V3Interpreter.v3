@@ -35,6 +35,7 @@ class V3Interpreter extends WasmStack {
 		thrown = null;
 		state_ = if(params_arity == 0, StackState.RESUMABLE, StackState.SUSPENDED);
 	}
+	// def gotoExact
 	def bind(args: Range<Value>) -> this {
 		if (args.length == 0 && state_ == StackState.RESUMABLE) return;
 		checkState("bind()", StackState.SUSPENDED);

@@ -1832,6 +1832,9 @@ class SpcState(regAlloc: RegAlloc) {
 	def peek2() -> (SpcVal, SpcVal) {
 		return (state[sp - 2], state[sp - 1]);
 	}
+	def peekn(n: int) -> Range<SpcVal> {
+		return state[state.length - n...];
+	}
 	def overwrite(flags: byte, reg: Reg, const: int) {
 		var old = state[sp - 1];
 		var tag_stored = if((old.flags & KIND_MASK) == (flags & KIND_MASK), old.flags & TAG_STORED);
@@ -2127,6 +2130,8 @@ type SpecialArg {
 }
 
 class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(spc.xenv, spc.masm, spc.regAlloc, spc.extensions, spc.limits) {
+	def interpreter: V3Interpreter;
+
 	def special_gen0(module: Module, func: FuncDecl, args: Range<SpecialArg>) -> bool {
 		if (Trace.compiler) OUT.put1("==== begin compile specialized: %q ========================", func.render(module.names, _)).ln();
 		var before_code_bytes = masm.curCodeBytes();
@@ -2143,6 +2148,7 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 		success = true;
 		osr_offset = -1;
 		osr_state = null;
+		interpreter.reset(Function.new(sig));
 
 		// Initialize parameters, locals, and first control stack entry.
 		var end_label = masm.newLabel(func.cur_bytecode.length);
@@ -2153,13 +2159,27 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 		for (i < args.length) {
 			match (args[i]) {
 				Const(arg) => {
+					// TODO: typecheck
 					def spcv = SpcVals.fromConstValue(arg);
-					state.set(u32.!(i), spcv.flags, spcv.reg, spcv.const);
+					// "params start on the stack and already have tags" - state.reset
+					def flags = spcv.flags | TAG_STORED | IS_STORED;
+					state.set(u32.!(i), flags, spcv.reg, spcv.const);
 				}
-				Dyn => {}
+				Dyn => {} // already set by state.reset
 			}
 		}
-		// TODO: load args into V3Interpreter stack
+
+		// load args into V3Interpreter stack
+		// for dyn ones, just put anything. 
+		// Track the stage of variables just by their mirror in compiler abstract state
+		// i.e. SpcVal.isConst()
+		def interpreter_args: Array<Value> = Array.new(args.length);
+		for (i < args.length) {
+			match (args[i]) {
+				Const(arg) => interpreter_args[i] = arg;
+				Dyn => interpreter_args[i] = Value.I32(0);
+			}
+		}
 
 		state.num_locals = func.num_locals;
 
@@ -2177,15 +2197,31 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 
 		// Emit instructions.
 		while (it.more() && success) {
+			// TODO: i deleted this but not sure why
+                        // if (Trace.compiler) traceOpcodeAndStack(false);
+                        // last_probe = 0;
+                        // masm.source_loc = it.pc;
+                        // it.dispatch(this);
+                        // unrefRegs();
+                        // if (Debug.compiler) checkRegAlloc();
 			// TODO: try run V3Interpreter on const stuff
-			if (Trace.compiler) traceOpcodeAndStack(false);
-			last_probe = 0;
-			masm.source_loc = it.pc;
-			it.dispatch(this);
-			unrefRegs();
-			if (Debug.compiler) checkRegAlloc();
+			def op = it.current();
+			if (canConst(op)) {
+				// run interpreter on op
+			} else {
+				// set some stuff to const
+
+				if (Trace.compiler) traceOpcodeAndStack(false);
+				last_probe = 0;
+				masm.source_loc = it.pc;
+				it.dispatch(this);
+				unrefRegs();
+				if (Debug.compiler) checkRegAlloc();
+			}
+
 			it.next();
-			if (skip_to_end) doSkipToEndOfBlock();
+
+			if (skip_to_end) doSkipToEndOfBlock(); // worry about later
 		}
 
 		// Emit epilogue even if no return.
@@ -2195,6 +2231,7 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 			emitUnwind();
 		}
 
+		// TODO: not sure how this stuff interacts if stuff is fully specialized away
 		// Emit trap labels.
 		for (i < trap_labels.length) {
 			var e = trap_labels[i];
@@ -2216,5 +2253,26 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 			Metrics.spc_functions.val++;
 		}
 		return success;
+	}
+
+	// also maybe not the best name? DROP kills a value, so is it an operand?
+	def operands(op: Opcode) -> Range<SpcVal> {
+		match (op) {
+			// TODO: END, RETURN?
+			// might be a better way to do this with OpcodeAttributes
+			UNREACHABLE, NOP, TRY, BLOCK, LOOP, ELSE, BR, DROP, I32_CONST => return [];
+			IF, BR_IF => return state.peekn(1);
+			I32_ADD => return state.peekn(2);
+			_ => return [];
+		}
+	}
+
+	def allConst(spcvs: Range<SpcVal>) -> bool {
+		for (v in spcvs) if (!v.isConst()) return false;
+		return true;
+	}
+
+	def canConst(op: Opcode) -> bool {
+		return allConst(operands(op));
 	}
 }
