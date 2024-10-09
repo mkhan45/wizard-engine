@@ -35,7 +35,19 @@ class V3Interpreter extends WasmStack {
 		thrown = null;
 		state_ = if(params_arity == 0, StackState.RESUMABLE, StackState.SUSPENDED);
 	}
-	// def gotoExact
+	def forceOp(it: BytecodeIterator) {
+		// assume it.func == frame.func
+		def it_codeptr = it.immptr();
+		codeptr.reset(it_codeptr.data, it_codeptr.pos, it_codeptr.limit);
+		frame.pc = it.pc;
+		execOp(it.pc, it.current());
+	}
+	def getPc() -> int {
+		return frame.pc;
+	}
+	def getCodePos() -> int {
+		return codeptr.pos;
+	}
 	def bind(args: Range<Value>) -> this {
 		if (args.length == 0 && state_ == StackState.RESUMABLE) return;
 		checkState("bind()", StackState.SUSPENDED);

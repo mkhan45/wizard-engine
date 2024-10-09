@@ -26,6 +26,15 @@ class BytecodeIterator {
 		this.imm.reset(null, 0, 0);
 		this.imm_pos = 0;
 	}
+	def forceSetTo(pc: int, pos: int) -> this {
+		// assume func is the same
+		this.pc = pc;
+		this.codeptr.reset(func.cur_bytecode, pos, func.cur_bytecode.length);
+		// TODO: ignore these?
+		// this.origptr.reset(func.orig_bytecode, 0, func.orig_bytecode.length);
+		// this.imm.reset(null, 0, 0);
+		// this.imm_pos = 0;
+	}
 
 	def iterate(func: FuncDecl, v: BytecodeVisitor) {
 		reset(func);

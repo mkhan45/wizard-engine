@@ -2197,20 +2197,24 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 
 		// Emit instructions.
 		while (it.more() && success) {
-			// TODO: i deleted this but not sure why
+			// TODO: this was the previous code, should probably
+			// add some of the tracing stuff back
                         // if (Trace.compiler) traceOpcodeAndStack(false);
                         // last_probe = 0;
                         // masm.source_loc = it.pc;
                         // it.dispatch(this);
                         // unrefRegs();
                         // if (Debug.compiler) checkRegAlloc();
-			// TODO: try run V3Interpreter on const stuff
+
 			def op = it.current();
 			if (canConst(op)) {
 				// run interpreter on op
+				interpreter.forceOp(it);
+				// reflect interpreter jumps back to `it`, TODO: check if return
+				it.forceSetTo(interpreter.getPc(), interpreter.getCodePos());
+				// TODO: anything else?
 			} else {
-				// set some stuff to const
-
+				// TODO: set some stuff to const
 				if (Trace.compiler) traceOpcodeAndStack(false);
 				last_probe = 0;
 				masm.source_loc = it.pc;
@@ -2260,9 +2264,9 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 		match (op) {
 			// TODO: END, RETURN?
 			// might be a better way to do this with OpcodeAttributes
-			UNREACHABLE, NOP, TRY, BLOCK, LOOP, ELSE, BR, DROP, I32_CONST => return [];
+			UNREACHABLE, NOP, TRY, BLOCK, LOOP, ELSE, BR, DROP, I32_CONST, LOCAL_GET => return [];
 			IF, BR_IF => return state.peekn(1);
-			I32_ADD => return state.peekn(2);
+			I32_ADD, I32_LT_S, I32_MUL => return state.peekn(2);
 			_ => return [];
 		}
 	}
