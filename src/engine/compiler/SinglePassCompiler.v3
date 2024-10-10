@@ -2210,17 +2210,24 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 
 			def op = it.current();
 			if (canConst(op)) {
+				System.puts("const evaling ");
+				System.puts(op.name);
+				System.puts("\n");
 				// run interpreter on op
 				interpreter.forceOp(it);
 				// reflect interpreter jumps back to `it`, TODO: check if return
 				it.forceSetTo(interpreter.getPc(), interpreter.getCodePos());
 				// TODO: anything else?
 			} else {
-				// TODO: set some stuff to const
+				System.puts("gotta compile ");
+				System.puts(op.name);
+				System.puts("\n");
+				// TODO: reflect interpreter state to abstract,
+				// set some stuff to const
 				if (Trace.compiler) traceOpcodeAndStack(false);
 				last_probe = 0;
 				masm.source_loc = it.pc;
-				it.dispatch(this);
+				it.dispatch(spc);
 				unrefRegs();
 				if (Debug.compiler) checkRegAlloc();
 			}

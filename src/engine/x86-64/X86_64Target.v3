@@ -366,7 +366,7 @@ class X86_64DynamicStrategy extends X86_64SpcStrategy {
 }
 
 // TODO: kill this when we put specialize.main in wizeng.main
-component X86Compiler {
+component X86_64Compiler {
 	def mk(filename: string) -> X86_64SinglePassCompiler {
 		return newCompiler(filename);
 	}

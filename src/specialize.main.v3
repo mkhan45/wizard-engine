@@ -24,7 +24,7 @@ def main(args: Array<string>) -> int {
 	def main = instance.findExportOfType<Function>(GlobMatcher.new("main"));
 
 	// not gonna deal with tiering rn
-	def compiler = X86Compiler.mk(module.filename);
+	def compiler: X86_64SinglePassCompiler = X86_64Compiler.mk(module.filename);
 	def specializer = SpecializingCompiler.new(compiler);
 
 	def func = WasmFunction.!(main).decl;
