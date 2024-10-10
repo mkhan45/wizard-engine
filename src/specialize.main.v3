@@ -18,22 +18,16 @@ def main(args: Array<string>) -> int {
 	def result = engine.loadWasmFile(path);
 	def module = FileLoadResult.Ok.!(result).module;
 	def exts: Extension.set; // how to make empty enum set without extra decl?
-	def i = Instantiator.new(exts, module, [], ErrorGen.new(path));
+	def imports = Array<Exportable>.new(module.imports.length);
+	def i = Instantiator.new(exts, module, imports, ErrorGen.new(path));
 	def instance = i.run();
-	var entry: (Function, Array<Value>);
-	for (j < i.processors.length) {
-		var p = i.processors[j];
-		if (HostModule.?(p)) {
-			entry = HostModule.!(p).getMain(instance);
-			if (entry.0 != null) break;
-		}
-	}
+	def main = instance.findExportOfType<Function>(GlobMatcher.new("main"));
 
 	// not gonna deal with tiering rn
 	def compiler = X86Compiler.mk(module.filename);
 	def specializer = SpecializingCompiler.new(compiler);
 
-	def func = WasmFunction.!(entry.0).decl;
+	def func = WasmFunction.!(main).decl;
 	def res = specializer.special_gen0(
 			module, func, [SpecialArg.Const(Value.I32(0)), SpecialArg.Const(Value.I32(0))]
 	);

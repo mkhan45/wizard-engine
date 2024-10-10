@@ -2130,7 +2130,7 @@ type SpecialArg {
 }
 
 class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(spc.xenv, spc.masm, spc.regAlloc, spc.extensions, spc.limits) {
-	def interpreter: V3Interpreter;
+	def interpreter = V3Interpreter.new();
 
 	def special_gen0(module: Module, func: FuncDecl, args: Range<SpecialArg>) -> bool {
 		if (Trace.compiler) OUT.put1("==== begin compile specialized: %q ========================", func.render(module.names, _)).ln();
@@ -2148,7 +2148,9 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 		success = true;
 		osr_offset = -1;
 		osr_state = null;
-		interpreter.reset(Function.new(sig));
+
+		// TODO: provide instance?
+		interpreter.reset(WasmFunction.new(Instance.new(module, []), func));
 
 		// Initialize parameters, locals, and first control stack entry.
 		var end_label = masm.newLabel(func.cur_bytecode.length);
