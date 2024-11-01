@@ -36,17 +36,26 @@ class V3Interpreter extends WasmStack {
 		state_ = if(params_arity == 0, StackState.RESUMABLE, StackState.SUSPENDED);
 	}
 	def forceOp(it: BytecodeIterator) {
+		// TODO: update STP - https://github.com/mkhan45/wizard-engine/pull/1#discussion_r1799555465
 		// assume it.func == frame.func
-		def it_codeptr = it.immptr();
-		codeptr.reset(it_codeptr.data, it_codeptr.pos, it_codeptr.limit);
+		def op = it.current();
+		def imm_codeptr = it.immptr();
+
 		frame.pc = it.pc;
-		execOp(it.pc, it.current());
+		codeptr.reset(imm_codeptr.data, imm_codeptr.pos, imm_codeptr.limit);
+		execOp(frame.pc, op);
+	}
+	def more() -> bool {
+		return frame != null;
 	}
 	def getPc() -> int {
 		return frame.pc;
 	}
 	def getCodePos() -> int {
 		return codeptr.pos;
+	}
+	def getStackValues() -> Range<Value> {
+		return values.elems[frame.fp...];
 	}
 	def bind(args: Range<Value>) -> this {
 		if (args.length == 0 && state_ == StackState.RESUMABLE) return;

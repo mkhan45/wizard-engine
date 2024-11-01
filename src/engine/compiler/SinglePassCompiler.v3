@@ -1634,6 +1634,13 @@ class SpcState(regAlloc: RegAlloc) {
 		}
 		sp = u32.view(params.length);
 	}
+	def reflectStack(values: Range<Value>) {
+		for (i < values.length) {
+			def spcv = SpcVals.fromConstValue(values[i]);
+			state[i] = spcv;
+		}
+		sp = u32.!(values.length - 1);
+	}
 	// Add the specified number of locals of the specified type.
 	def addLocals(count: u32, ltype: ValueType) {
 		var nlength = sp + count;
@@ -2182,6 +2189,7 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 				Dyn => interpreter_args[i] = Value.I32(0);
 			}
 		}
+		interpreter.bind(interpreter_args);
 
 		state.num_locals = func.num_locals;
 
@@ -2198,7 +2206,7 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 		}
 
 		// Emit instructions.
-		while (it.more() && success) {
+		while (it.more() && interpreter.more() && success) {
 			// TODO: this was the previous code, should probably
 			// add some of the tracing stuff back
                         // if (Trace.compiler) traceOpcodeAndStack(false);
@@ -2213,26 +2221,31 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 				System.puts("const evaling ");
 				System.puts(op.name);
 				System.puts("\n");
+				// interpreter.traceStack();
 				// run interpreter on op
 				interpreter.forceOp(it);
 				// reflect interpreter jumps back to `it`, TODO: check if return
-				it.forceSetTo(interpreter.getPc(), interpreter.getCodePos());
+				if (interpreter.more()) {
+					it.forceSetTo(interpreter.getPc(), interpreter.getCodePos());
+				}
 				// TODO: anything else?
+				// probably track constness of stack eagerly? idk
 			} else {
 				System.puts("gotta compile ");
 				System.puts(op.name);
 				System.puts("\n");
+				// interpreter.traceStack();
 				// TODO: reflect interpreter state to abstract,
 				// set some stuff to const
+				spc.state.reflectStack(interpreter.getStackValues());
 				if (Trace.compiler) traceOpcodeAndStack(false);
 				last_probe = 0;
 				masm.source_loc = it.pc;
 				it.dispatch(spc);
 				unrefRegs();
 				if (Debug.compiler) checkRegAlloc();
+				it.next();
 			}
-
-			it.next();
 
 			if (skip_to_end) doSkipToEndOfBlock(); // worry about later
 		}
@@ -2286,6 +2299,10 @@ class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(s
 	}
 
 	def canConst(op: Opcode) -> bool {
+		// TODO: this doesn't really make sense w/ control flow
+		// because e.g. it always tells us that an Else instruction will
+		// be consted, even if instructions inside the else block must
+		// be compiled.
 		return allConst(operands(op));
 	}
 }

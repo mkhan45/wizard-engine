@@ -205,6 +205,10 @@ class BytecodeIterator {
 		return imm.reset(codeptr.data, imm_pos, codeptr.pos);
 	}
 
+	def codeptr_clone() -> CodePtr {
+		return CodePtr.new(null).reset(codeptr.data, codeptr.pos, codeptr.limit);
+	}
+
 	// Returns {true} if there are more bytecodes remaining.
 	def more() -> bool {
 		return pc < codeptr.limit;
