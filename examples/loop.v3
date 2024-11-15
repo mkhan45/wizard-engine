@@ -1,0 +1,25 @@
+def cbd_loop() {
+	var (in_typ, out_typ) = read_block_type();
+	start_loop(in_typ, out_typ);
+}
+
+component Eval {
+	def start_loop(_in_type: Type, _out_type: Type) { /* noop */ }
+}
+
+component Validate {
+	var ctlStack = CtlStack.new();
+
+	def start_loop(in_type: Type, out_type: Type) {
+		checkArgs(in_type, out_type);
+		pushLoop(in_type, out_type);
+	}
+}
+
+component Compile {
+	var ctlStack = CtlStack.new();
+
+	def start_loop(in_type: Type, out_type: Type) {
+		pushLoop(in_type, out_type);
+	}
+}

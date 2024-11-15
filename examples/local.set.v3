@@ -1,0 +1,35 @@
+def cbd_local_set() {
+	var idx = read_imm_leb32();
+	var localVal = pop();
+	setLocal(idx, localVal);
+}
+
+component Eval {
+	var stack = Stack<Value>.new();
+	var locals = Array<Value>.new();
+
+	def pop() -> Value { ... }
+	def setLocal(idx: u32, x: Value) { ... }
+}
+
+component Validate {
+	var stack = Stack<Type>.new();
+	var locals = Array<Type>.new();
+
+	def pop() -> Type { ... }
+	def push(t: Type) { ... }
+	def setLocal(idx: u32, stack_ty: Type) { 
+		var local_ty = locals[idx];
+		assert(local_ty == stack_ty); 
+	}
+}
+
+component Compile {
+	var spc_state = SpcState.new();
+
+	def pop() -> SpcVal { ... }
+	def push(v: SpcVal) { ... }
+	def setLocal(idx: u32, stack_v: SpcVal) { 
+		spc_state.emit_local_set(idx, stack_v);
+	}
+}

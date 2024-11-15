@@ -1,0 +1,35 @@
+def cbd_i32_add() {
+	var x = popi();
+	var y = popi();
+	var z = add(x, y);
+	pushi(z);
+}
+
+component Eval {
+	var stack = Stack<Value>.new();
+
+	def popi() { return stack.popi(); }
+	def pushi(z: i32) { stack.pushi(z); }
+
+	def i32_add(x, y) { return x + y; }
+}
+
+component Validate {
+	var stack = Stack<Type>.new();
+
+	def popi() { assert(stack.pop() == i32); return () };
+	def pushi(_: ()) { stack.pushi(i32); }
+
+	def i32_add(_, _) { return i32; }
+}
+
+component Compile {
+	var spc_state = SpcState.new();
+
+	def popi() { return spc_state.popi(); /* SpcVal */ }
+	def pushi(x: SpcVal) { spc_state.pushi(x); }
+	def i32_add(x: SpcVal, y: SpcVal) {
+		// kind of combines concerns wrt codegen and abstract state but compilers ¯\_(ツ)_/¯
+		return spc_state.emit_i32_add(x, y);
+	}
+}

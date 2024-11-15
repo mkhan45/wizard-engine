@@ -1,0 +1,72 @@
+enum Balloon {
+	Yes,
+	No,
+	Maybe,
+}
+
+def cbd_br_if() {
+	var label_idx = read_imm_leb32();
+	var condv = pop_i32();
+	var jump: Balloon = i32_eq0(condv);
+
+	// putting control flow in the hands of component intrinsics
+	match jump {
+		Yes => fallthru();
+		No => branch(label_idx);
+		Maybe => {
+			fallthru();
+			branch(label_idx);
+		}
+	}
+}
+
+component Eval {
+	var pc = 0;
+	var sidetable = ...;
+	var stack = Stack<Value>.new();
+	var locals = Array<Value>.new();
+
+	def pop_i32() -> i32 { ... }
+	def i32_eq0(v: i32) -> Balloon { return Balloon.fromBool(v == 0); }
+
+	def fallthru() { pc += 1; }
+	def branch(label_idx: u32) {
+		var target = sidetable.resolve(label_idx);
+		pc = target;
+		... // fix stack etc
+	}
+}
+
+component Validate {
+	var pc = 0;
+	var stack = Stack<Type>.new();
+	var locals = Array<Type>.new();
+	var ctlStack = CtlStack.new();
+
+	def pop_i32() -> Type { return i32; }
+	def i32_eq0(_) -> Balloon { return Balloon.Maybe; } // could do extra analysis but not for validation
+
+	def fallthru() { 
+		checkFallthru(); 
+		pc += 1;
+	}
+	def branch(label_idx: u32) { 
+		checkBranch(label_idx); 
+		pc += 1;
+	}
+}
+
+component Compile {
+	var pc = 0;
+	var spc_state = SpcState.new();
+	var ctlStack = CtlStack.new();
+
+	def pop_i32() -> Type { ... }
+	def i32_eq0(_) -> Balloon { ... }
+
+	def fallthru() { pc += 1; }
+	def branch(label_idx: u32) { 
+		emitBranch(label_idx); 
+		pc += 1;
+	}
+}
