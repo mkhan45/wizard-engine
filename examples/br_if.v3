@@ -9,14 +9,11 @@ def cbd_br_if() {
 	var condv = pop_i32();
 	var jump: Balloon = i32_eq0(condv);
 
-	// putting control flow in the hands of component intrinsics
-	match jump {
-		Yes => fallthru();
-		No => branch(label_idx);
-		Maybe => {
-			fallthru();
-			branch(label_idx);
-		}
+	// puts control flow in the hands of component intrinsics
+	if (jump.maybeTrue()) {
+		fallthru();
+	} else if (jump.maybeFalse()) {
+		branch(label_idx);
 	}
 }
 
