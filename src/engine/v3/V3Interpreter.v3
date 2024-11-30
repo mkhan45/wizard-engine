@@ -35,6 +35,28 @@ class V3Interpreter extends WasmStack {
 		thrown = null;
 		state_ = if(params_arity == 0, StackState.RESUMABLE, StackState.SUSPENDED);
 	}
+	def forceOp(it: BytecodeIterator) {
+		// TODO: update STP - https://github.com/mkhan45/wizard-engine/pull/1#discussion_r1799555465
+		// assume it.func == frame.func
+		def op = it.current();
+		def imm_codeptr = it.immptr();
+
+		frame.pc = it.pc;
+		codeptr.reset(imm_codeptr.data, imm_codeptr.pos, imm_codeptr.limit);
+		execOp(frame.pc, op);
+	}
+	def more() -> bool {
+		return frame != null;
+	}
+	def getPc() -> int {
+		return frame.pc;
+	}
+	def getCodePos() -> int {
+		return codeptr.pos;
+	}
+	def getStackValues() -> Range<Value> {
+		return values.elems[frame.fp...];
+	}
 	def bind(args: Range<Value>) -> this {
 		if (args.length == 0 && state_ == StackState.RESUMABLE) return;
 		checkState("bind()", StackState.SUSPENDED);
@@ -192,7 +214,8 @@ class V3Interpreter extends WasmStack {
 				frame.pc = pc = codeptr.pos; // update pc after decoding locals
 				// Fire entry probe(s).
 				if (func.decl.entry_probed) {
-					var throwable = Instrumentation.fireLocalProbes(DynamicLoc(func, 0, TargetFrame(frame)));
+					// var throwable = Instrumentation.fireLocalProbes(DynamicLoc(func, 0, TargetFrame(frame)));
+					var throwable = null;
 					if (throwable != null) {
 						throw(throwable);
 						continue;
@@ -202,7 +225,8 @@ class V3Interpreter extends WasmStack {
 
 			// Fire global probes.
 			if (Instrumentation.probes != null) {
-				var throwable = Instrumentation.fireGlobalProbes(DynamicLoc(func, pc, TargetFrame(frame)));
+				// var throwable = Instrumentation.fireGlobalProbes(DynamicLoc(func, pc, TargetFrame(frame)));
+				var throwable = null;
 				if (throwable != null) {
 					throw(throwable);
 					continue;
@@ -213,7 +237,8 @@ class V3Interpreter extends WasmStack {
 			var opcode: Opcode;
 			if (b == InternalOpcode.PROBE.code) {
 				// First local probes.
-				var throwable = Instrumentation.fireLocalProbes(DynamicLoc(func, pc, TargetFrame(frame)));
+				// var throwable = Instrumentation.fireLocalProbes(DynamicLoc(func, pc, TargetFrame(frame)));
+				var throwable = null;
 				if (throwable != null) {
 					throw(throwable);
 					continue;
@@ -1828,7 +1853,8 @@ class V3Frame {
 
 private class V3HostFrame(prev: V3Frame) extends HostFrame {
 	def caller() -> FrameLoc {
-		return if(prev != null, FrameLoc.Wasm(prev.func, prev.pc, TargetFrame(prev)));
+		// return if(prev != null, FrameLoc.Wasm(prev.func, prev.pc, TargetFrame(prev)));
+		return FrameLoc.None;
 	}
 }
 
@@ -1863,7 +1889,8 @@ class V3FrameAccessor(frame: V3Frame) extends FrameAccessor {
 		checkNotUnwound();
 		var p = frame.prev;
 		if (p == null) return FrameLoc.None;
-		return FrameLoc.Wasm(p.func, p.pc, TargetFrame(p));
+		// return FrameLoc.Wasm(p.func, p.pc, TargetFrame(p));
+		return FrameLoc.None;
 	}
 	// Returns the current program counter.
 	def stp() -> int {

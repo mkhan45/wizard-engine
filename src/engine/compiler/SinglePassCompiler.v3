@@ -1555,6 +1555,24 @@ type SpcVal(flags: byte, reg: Reg, const: int) #unboxed {
 	}
 }
 
+component SpcVals {
+	def fromConstValue(val: Value) -> SpcVal {
+		def flags = SpcConsts.kindToFlags(Values.kind(val)) | IS_CONST;
+		def reg = NO_REG;
+		var rep: int;
+		match (val) { // TODO: think about this more
+			I31(val) => rep = int.view(val);
+			I32(val) => rep = int.view(val);
+			I64(val) => rep = int.view(val);
+			F32(val) => rep = int.view(val);
+			F64(val) => rep = int.view(val);
+			V128(low, high) => rep = 0;
+			Ref(val) => rep = 0; // panic?
+		}
+		return SpcVal(flags, reg, rep);
+	}
+}
+
 // An entry in the abstract control stack.
 class SpcControl {
 	var opcode: byte;
@@ -1615,6 +1633,13 @@ class SpcState(regAlloc: RegAlloc) {
 			state[i] = SpcVal(typeToKindFlags(params[i]) | TAG_STORED | IS_STORED, NO_REG, 0);
 		}
 		sp = u32.view(params.length);
+	}
+	def reflectStack(values: Range<Value>) {
+		for (i < values.length) {
+			def spcv = SpcVals.fromConstValue(values[i]);
+			state[i] = spcv;
+		}
+		sp = u32.!(values.length - 1);
 	}
 	// Add the specified number of locals of the specified type.
 	def addLocals(count: u32, ltype: ValueType) {
@@ -1813,6 +1838,9 @@ class SpcState(regAlloc: RegAlloc) {
 	}
 	def peek2() -> (SpcVal, SpcVal) {
 		return (state[sp - 2], state[sp - 1]);
+	}
+	def peekn(n: int) -> Range<SpcVal> {
+		return state[state.length - n...];
 	}
 	def overwrite(flags: byte, reg: Reg, const: int) {
 		var old = state[sp - 1];
@@ -2101,4 +2129,180 @@ class MoveNode {
 	var src: MoveNode;	// source of the value for this node
 	var dstList: MoveNode;	// head of destination list
 	var dstNext: MoveNode;	// next in a list of successors
+}
+
+type SpecialArg {
+	case Const(val: Value);
+	case Dyn;
+}
+
+class SpecializingCompiler(spc: SinglePassCompiler) extends SinglePassCompiler(spc.xenv, spc.masm, spc.regAlloc, spc.extensions, spc.limits) {
+	def interpreter = V3Interpreter.new();
+
+	def special_gen0(module: Module, func: FuncDecl, args: Range<SpecialArg>) -> bool {
+		if (Trace.compiler) OUT.put1("==== begin compile specialized: %q ========================", func.render(module.names, _)).ln();
+		var before_code_bytes = masm.curCodeBytes();
+		var before_data_bytes = masm.curDataBytes();
+
+		// Reset internal state.
+		this.module = module;
+		this.func = func;
+		it.reset(func);
+		sig = func.sig;
+		unwind_label = null;
+		regAlloc.clear();
+		trap_labels.resize(0);
+		success = true;
+		osr_offset = -1;
+		osr_state = null;
+
+		// TODO: provide instance?
+		interpreter.reset(WasmFunction.new(Instance.new(module, []), func));
+
+		// Initialize parameters, locals, and first control stack entry.
+		var end_label = masm.newLabel(func.cur_bytecode.length);
+		state.reset(sig, end_label);
+
+		assert2(args.length == sig.params.length, "got %d specialize args, expected %d", args.length, sig.params.length);
+		// constify args
+		for (i < args.length) {
+			match (args[i]) {
+				Const(arg) => {
+					// TODO: typecheck
+					def spcv = SpcVals.fromConstValue(arg);
+					// "params start on the stack and already have tags" - state.reset
+					def flags = spcv.flags | TAG_STORED | IS_STORED;
+					state.set(u32.!(i), flags, spcv.reg, spcv.const);
+				}
+				Dyn => {} // already set by state.reset
+			}
+		}
+
+		// load args into V3Interpreter stack
+		// for dyn ones, just put anything. 
+		// Track the stage of variables just by their mirror in compiler abstract state
+		// i.e. SpcVal.isConst()
+		def interpreter_args: Array<Value> = Array.new(args.length);
+		for (i < args.length) {
+			match (args[i]) {
+				Const(arg) => interpreter_args[i] = arg;
+				Dyn => interpreter_args[i] = Value.I32(0);
+			}
+		}
+		interpreter.bind(interpreter_args);
+
+		state.num_locals = func.num_locals;
+
+		// Emit prologue, which allocates the frame and initializes various registers.
+		emitPrologue();
+
+		// Visit all local declarations.
+		it.dispatchLocalDecls(this);
+
+		// Emit function entry probe, if any.
+		if (!FeatureDisable.entryProbes && func.entry_probed) {
+			var probe = Instrumentation.getLocalProbe(module, func.func_index, 0);
+			emitProbe0(0, probe);
+		}
+
+		// Emit instructions.
+		while (it.more() && interpreter.more() && success) {
+			// TODO: this was the previous code, should probably
+			// add some of the tracing stuff back
+                        // if (Trace.compiler) traceOpcodeAndStack(false);
+                        // last_probe = 0;
+                        // masm.source_loc = it.pc;
+                        // it.dispatch(this);
+                        // unrefRegs();
+                        // if (Debug.compiler) checkRegAlloc();
+
+			def op = it.current();
+			if (canConst(op)) {
+				System.puts("const evaling ");
+				System.puts(op.name);
+				System.puts("\n");
+				// interpreter.traceStack();
+				// run interpreter on op
+				interpreter.forceOp(it);
+				// reflect interpreter jumps back to `it`, TODO: check if return
+				if (interpreter.more()) {
+					it.forceSetTo(interpreter.getPc(), interpreter.getCodePos());
+				}
+				// TODO: anything else?
+				// probably track constness of stack eagerly? idk
+			} else {
+				System.puts("gotta compile ");
+				System.puts(op.name);
+				System.puts("\n");
+				// interpreter.traceStack();
+				// TODO: reflect interpreter state to abstract,
+				// set some stuff to const
+				spc.state.reflectStack(interpreter.getStackValues());
+				if (Trace.compiler) traceOpcodeAndStack(false);
+				last_probe = 0;
+				masm.source_loc = it.pc;
+				it.dispatch(spc);
+				unrefRegs();
+				if (Debug.compiler) checkRegAlloc();
+				it.next();
+			}
+
+			if (skip_to_end) doSkipToEndOfBlock(); // worry about later
+		}
+
+		// Emit epilogue even if no return.
+		if (unwind_label != null) {
+			masm.bindLabel(unwind_label);
+			unwind_label = null;
+			emitUnwind();
+		}
+
+		// TODO: not sure how this stuff interacts if stuff is fully specialized away
+		// Emit trap labels.
+		for (i < trap_labels.length) {
+			var e = trap_labels[i];
+			masm.bindLabel(e.1);
+			masm.emit_mov_m_i(xenv.pc_slot, e.1.create_pos);
+			masm.emit_jump_to_trap_at(e.0);
+		}
+
+		// Emit OSR entry.
+		if (osr_state != null) {
+			osr_entry_label = masm.newLabel(osr_pc);
+			emitOsrEntry(osr_entry_label, osr_state);
+		}
+		if (success) {
+			// Metric collection
+			Metrics.spc_in_bytes.val += u32.view(func.orig_bytecode.length);
+			Metrics.spc_code_bytes.val += (masm.curCodeBytes() - before_code_bytes);
+			Metrics.spc_data_bytes.val += (masm.curDataBytes() - before_data_bytes);
+			Metrics.spc_functions.val++;
+		}
+		return success;
+	}
+
+	// also maybe not the best name? DROP kills a value, so is it an operand?
+	def operands(op: Opcode) -> Range<SpcVal> {
+		match (op) {
+			// TODO: END, RETURN?
+			// might be a better way to do this with OpcodeAttributes
+			UNREACHABLE, NOP, TRY, BLOCK, LOOP, ELSE, BR, DROP, I32_CONST, LOCAL_GET => return [];
+			IF, BR_IF => return state.peekn(1);
+			I32_ADD, I32_LT_S, I32_MUL => return state.peekn(2);
+			_ => return [];
+		}
+	}
+
+	def allConst(spcvs: Range<SpcVal>) -> bool {
+		for (v in spcvs) if (!v.isConst()) return false;
+		return true;
+	}
+
+	def canConst(op: Opcode) -> bool {
+		// TODO: this doesn't really make sense w/ control flow
+		// because e.g. it always tells us that an Else instruction will
+		// be consted, even if instructions inside the else block must
+		// be compiled.
+		return allConst(operands(op));
+	}
 }

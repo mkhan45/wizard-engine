@@ -75,6 +75,9 @@ if [ "$PROGRAM" = "wizeng" ]; then
     if [[ "$TARGET" = "x86-64-linux" || "$TARGET" = "x86_64_linux" ]]; then
         SOURCES="$SOURCES $WASI_X86_64_LINUX $WALI_X86_64_LINUX"
     fi
+elif [ "$PROGRAM" = "specialize" ]; then
+    SOURCES="$ENGINE $WAVE $WASI $WALI src/modules/*.v3 src/modules/wizeng/*.v3 $MONITORS src/engine/v3/V3Interpreter.v3 src/specialize.main.v3"
+    SOURCES="$SOURCES $WASI_X86_64_LINUX $WALI_X86_64_LINUX"
 elif [ "$PROGRAM" = "spectest" ]; then
     SOURCES="$ENGINE $SPECTEST"
 elif [ "$PROGRAM" = "unittest" ]; then
@@ -100,12 +103,17 @@ if [[ "$TARGET" = "x86-linux" || "$TARGET" = "x86_linux" ]]; then
 elif [[ "$TARGET" = "x86-64-darwin" || "$TARGET" = "x86_64_darwin" ]]; then
     exec v3c-x86-64-darwin -symbols -heap-size=700m -stack-size=1m $V3C_OPTS -program-name=${PROGRAM}.x86-64-darwin -output=bin/ $SOURCES $BUILD_FILE $TARGET_V3
 elif [[ "$TARGET" = "x86-64-linux" || "$TARGET" = "x86_64_linux" ]]; then
-    v3c-x86-64-linux -symbols -heap-size=700m -stack-size=2m $V3C_OPTS -program-name=${exe} -output=bin/ $SOURCES $BUILD_FILE $TARGET_X86_64
+    echo "Exe: $exe"
+    echo "Sources: $SOURCES"
+    echo "Build File: $BUILD_FILE"
+    echo "Target: $TARGET_X86_64"
+    echo "v3c-x86-64-linux -symbols -heap-size=700m -stack-size=2m $V3C_OPTS -program-name=${exe} -output=bin/ $TARGET_X86_64 $SOURCES $BUILD_FILE"
+    v3c-x86-64-linux -symbols -heap-size=700m -stack-size=2m $V3C_OPTS -program-name=${exe} -output=bin/ $TARGET_X86_64 $SOURCES $BUILD_FILE
     STATUS=$?
     if [ $STATUS != 0 ]; then
 	exit $STATUS
     fi
-    if [ $PROGRAM = "wizeng" ]; then
+    if [[ $PROGRAM = "wizeng" ]] ; then
 	E=bin/${exe}
 	HOSTS=$(scripts/sense_host.sh)
 	if [[ "$PREGEN" != 0 && "$HOSTS" =~ "x86-64-linux" ]]; then
