@@ -1,17 +1,20 @@
+def REMOVE = false;
+
 type Entry(fid: u32, pc: u32, probe_id: u32, reached: bool) #unboxed;
 
 def MAX_ENTRIES = 1_000_000;
-def entries = Array<Entry>.new(MAX_ENTRIES);
+var entries: Array<Entry>;
 var numEntries = 1;
 
 def probe(entry_id: u32) {
 	var e_before = entries[entry_id];
 	var e_after = (e_before.fid, e_before.pc, e_before.probe_id, true);
 	entries[entry_id] = Entry(e_after);
-	WhammDynInstr.remove_probe(e_before.probe_id);
+	if (REMOVE) WhammDynInstr.remove_probe(e_before.probe_id);
 }
 
 export "$add_entry" def add_entry(fid: u32, pc: u32, probe_id: u32) -> int {
+	if (entries == null) entries = Array<Entry>.new(MAX_ENTRIES);
 	var entry_id = numEntries++;
 	entries[entry_id] = Entry(fid, pc, probe_id, false);
 	return entry_id;
@@ -48,10 +51,4 @@ export "wasm:exit" def exit() {
 	}
 }
 
-export "wasm:opcode:end($add_entry(fid,pc,probe_id))" = probe;
-export "wasm:opcode:loop($add_entry(fid,pc,probe_id))" = probe;
-export "wasm:opcode:else($add_entry(fid,pc,probe_id))" = probe;
-export "wasm:opcode:return($add_entry(fid,pc,probe_id))" = probe;
-export "wasm:opcode:return_call($add_entry(fid,pc,probe_id))" = probe;
-export "wasm:opcode:return_call_indirect($add_entry(fid,pc,probe_id))" = probe;
-export "wasm:opcode:return_call_ref($add_entry(fid,pc,probe_id))" = probe;
+export "wasm:opcode:*($add_entry(fid,pc,probe_id))" = probe;
