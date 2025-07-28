@@ -9,7 +9,6 @@ def imm_readLabels() -> Labels.V : read;
 def pop_i32() -> i32.I : pop;
 def pop_i64() -> i64.I : pop;
 def pop_u64() -> u64.I : pop;
-def pop_u64() -> u64.I : pop;
 def pop_f32() -> f32.I : pop;
 def pop_f64() -> f64.I : pop;
 def pop_v128() -> v128.I : pop;
@@ -18,7 +17,6 @@ def pop_Value(tv: TypeVar.V) -> Value.I : pop;
 
 def push_i32(v: i32.I) : push;
 def push_i64(v: i64.I) : push;
-def push_u64(v: u64.I) : push;
 def push_u64(v: u64.I) : push;
 def push_f32(v: f32.I) : push;
 def push_f64(v: double.I) : push;
@@ -105,3 +103,16 @@ def i32.&(lhs: i32.V, rhs: i32.V) -> i32.V;
 def i32.<(lhs: i32.V, rhs: i32.V) -> i32.V;
 def i32.<=(lhs: i32.V, rhs: i32.V) -> i32.V;
 def i32.>(lhs: i32.V, rhs: i32.V) -> i32.V;
+
+def float.+(lhs: f32.V, rhs: f32.V) -> f32.V;
+def float.-(lhs: f32.V, rhs: f32.V) -> f32.V;
+def float./(lhs: f32.V, rhs: f32.V) -> f32.V;
+def float.*(lhs: f32.V, rhs: f32.V) -> f32.V;
+def float.==(lhs: f32.V, rhs: f32.V) -> i32.V;
+def float.!=(lhs: f32.V, rhs: f32.V) -> i32.V;
+def float.<(lhs: f32.V, rhs: f32.V) -> i32.V;
+def float.<=(lhs: f32.V, rhs: f32.V) -> i32.V;
+def float.>(lhs: f32.V, rhs: f32.V) -> i32.V;
+
+def f32_reinterpret_i32(i: i32.I) -> f32.I;
+def f64_reinterpret_i64(i: i64.I) -> f64.I;
