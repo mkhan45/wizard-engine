@@ -87,6 +87,8 @@ def mach_readStructField_Object(obj: Object, offset: FieldOffset) -> Object;
 
 def mach_readMemory64_i32(memory_index: i32, index: i64, offset: i64) -> i32;
 def mach_readMemory32_i32(memory_index: i32, index: i32, offset: i32) -> i32;
+def mach_writeMemory64_i32(memory_index: i32, index: i64, offset: i64, val: i32);
+def mach_writeMemory32_i32(memory_index: i32, index: i32, offset: i32, val: i32);
 
 def mach_readTable64(table_index: i32, index: i64) -> Object;
 def mach_readTable32(table_index: i32, index: i32) -> Object;
@@ -320,6 +322,11 @@ def F32_DIV() {
 	var r = float./(a, b);
 	push_f32(r);
 }
+def F32_SQRT() {
+	var a = pop_f32();
+    var r = float.sqrt(a);
+    push_f32(r);
+}
 def F32_EQ() {
 	var b = pop_f32(), a = pop_f32();
 	if (float.==(a, b)) push_i32(1);
@@ -443,15 +450,15 @@ def RETURN() {
 	return doReturn();
 }
 def REF_NULL() {
-    def idx = imm_readULEB32();
+    def idx = imm_readILEB32();
     push_Object(object_Null());
 }
 def REF_IS_NULL() {
     var obj = pop_Object();
     if (object_isNull(obj)) {
-        push_u32(1);
+        push_i32(1);
     } else {
-        push_u32(0);
+        push_i32(0);
     }
 }
 def REF_AS_NON_NULL() {
@@ -462,7 +469,7 @@ def REF_AS_NON_NULL() {
     push_Object(obj); // XXX: wonder if we can optimize out pop->test->push in CBD
 }
 def STRUCT_NEW() {
-    var struct_idx = imm_readULEB32();
+    var struct_idx = imm_readILEB32();
     def sig = m_getSignature(struct_idx);
     def obj = object_New(sig);
     push_Object(obj);
@@ -491,7 +498,6 @@ def STRUCT_GET_S() {
 	var offset #sidetable = m_getFieldOffset(struct_index, field_index);
 	var obj = pop_Object();
 	if (object_isNull(obj)) return trapNull();
-	// TODO: sign extend
 	match (kind) {
 		U8 => push_i32(i32.view(mach_readStructField_i8(obj, offset)));
 		U16 => push_i32(i32.view(mach_readStructField_i16(obj, offset)));
@@ -505,7 +511,6 @@ def STRUCT_GET_U() {
 	var offset #sidetable = m_getFieldOffset(struct_index, field_index);
 	var obj = pop_Object();
 	if (object_isNull(obj)) return trapNull();
-	// TODO: zero extend
 	match (kind) {
 		U8 => push_i32(i32.view(mach_readStructField_u8(obj, offset)));
 		U16 => push_i32(i32.view(mach_readStructField_u16(obj, offset)));
@@ -515,7 +520,7 @@ def STRUCT_GET_U() {
 def I32_LOAD() {
 	var flags = imm_readU8();
 	var memindex = 0;
-	if (u8.&(flags, HAS_MEM_INDEX) == 0) memindex = imm_readILEB32();
+	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readILEB32();
 	if (m_isMemory64(memindex)) {
 		var offset = imm_readILEB64();
 		var index = pop_i64();
@@ -528,180 +533,20 @@ def I32_LOAD() {
 		push_i32(val);
 	}
 }
-def I32_LOAD8_U() {
-	var flags = imm_readU8();
-	var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
-	if (m_isMemory64(memindex)) {
-		var offset = imm_readULEB64();
-		var index = pop_u64();
-		var val = mach_readMemory64_u8(memindex, index, offset);
-		push_u32(val);
-	} else {
-		var offset = imm_readULEB32();
-		var index = pop_u32();
-		var val = mach_readMemory32_u8(memindex, index, offset);
-		push_u32(val);
-	}
-}
-def I32_LOAD16_S() {
-	var flags = imm_readU8();
-	var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
-	if (m_isMemory64(memindex)) {
-		var offset = imm_readULEB64();
-		var index = pop_u64();
-		var val = mach_readMemory64_u16(memindex, index, offset);
-		push_u32(val);
-	} else {
-		var offset = imm_readULEB32();
-		var index = pop_u32();
-		var val = mach_readMemory32_u16(memindex, index, offset);
-		push_u32(val);
-	}
-}
-def I64_LOAD() {
-	var flags = imm_readU8();
-	var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
-	if (m_isMemory64(memindex)) {
-		var offset = imm_readULEB64();
-		var index = pop_u64();
-		var val = mach_readMemory64_u64(memindex, index, offset);
-		push_u64(val);
-	} else {
-		var offset = imm_readULEB32();
-		var index = pop_u32();
-		var val = mach_readMemory32_u64(memindex, index, offset);
-		push_u64(val);
-	}
-}
-def F32_LOAD() {
-	var flags = imm_readU8();
-	var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
-	if (m_isMemory64(memindex)) {
-		var offset = imm_readULEB64();
-		var index = pop_u64();
-		var val = mach_readMemory64_f32(memindex, index, offset);
-		push_f32(val);
-	} else {
-		var offset = imm_readULEB32();
-		var index = pop_u32();
-		var val = mach_readMemory32_f32(memindex, index, offset);
-		push_f32(val);
-	}
-}
-def F64_LOAD() {
-	var flags = imm_readU8();
-	var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
-	if (m_isMemory64(memindex)) {
-		var offset = imm_readULEB64();
-		var index = pop_u64();
-		var val = mach_readMemory64_f64(memindex, index, offset);
-		push_f64(val);
-	} else {
-		var offset = imm_readULEB32();
-		var index = pop_u32();
-		var val = mach_readMemory32_f64(memindex, index, offset);
-		push_f64(val);
-	}
-}
 def I32_STORE() {
     var flags = imm_readU8();
-    var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+    var memindex = 0;
+	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readILEB32();
 
-    var val = pop_u32();
+    var val = pop_i32();
 	if (m_isMemory64(memindex)) {
-		var offset = imm_readULEB64();
-		var index = pop_u64();
-		mach_writeMemory64_u32(memindex, index, offset, val);
+		var offset = imm_readILEB64();
+		var index = pop_i64();
+		mach_writeMemory64_i32(memindex, index, offset, val);
 	} else {
-		var offset = imm_readULEB32();
-		var index = pop_u32();
-		mach_writeMemory32_u32(memindex, index, offset, val);
-	}
-}
-def I32_STORE8() {
-    var flags = imm_readU8();
-    var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
-
-    var val = pop_u32();
-	if (m_isMemory64(memindex)) {
-		var offset = imm_readULEB64();
-		var index = pop_u64();
-		mach_writeMemory64_u8(memindex, index, offset, val);
-	} else {
-		var offset = imm_readULEB32();
-		var index = pop_u32();
-		mach_writeMemory32_u8(memindex, index, offset, val);
-	}
-}
-def I32_STORE16() {
-    var flags = imm_readU8();
-    var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
-
-    var val = pop_u32();
-	if (m_isMemory64(memindex)) {
-		var offset = imm_readULEB64();
-		var index = pop_u64();
-		mach_writeMemory64_u16(memindex, index, offset, val);
-	} else {
-		var offset = imm_readULEB32();
-		var index = pop_u32();
-		mach_writeMemory32_u16(memindex, index, offset, val);
-	}
-}
-def I64_STORE() {
-    var flags = imm_readU8();
-    var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
-
-    var val = pop_u64();
-	if (m_isMemory64(memindex)) {
-		var offset = imm_readULEB64();
-		var index = pop_u64();
-		mach_writeMemory64_u64(memindex, index, offset, val);
-	} else {
-		var offset = imm_readULEB32();
-		var index = pop_u32();
-		mach_writeMemory32_u64(memindex, index, offset, val);
-	}
-}
-def F32_STORE() {
-    var flags = imm_readU8();
-    var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
-
-    var val = pop_f32();
-	if (m_isMemory64(memindex)) {
-		var offset = imm_readULEB64();
-		var index = pop_u64();
-		mach_writeMemory64_f32(memindex, index, offset, val);
-	} else {
-		var offset = imm_readULEB32();
-		var index = pop_u32();
-		mach_writeMemory32_f32(memindex, index, offset, val);
-	}
-}
-def F64_STORE() {
-    var flags = imm_readU8();
-    var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
-
-    var val = pop_f64();
-	if (m_isMemory64(memindex)) {
-		var offset = imm_readULEB64();
-		var index = pop_u64();
-		mach_writeMemory64_f64(memindex, index, offset, val);
-	} else {
-		var offset = imm_readULEB32();
-		var index = pop_u32();
-		mach_writeMemory32_f64(memindex, index, offset, val);
+		var offset = imm_readILEB32();
+		var index = pop_i32();
+		mach_writeMemory32_i32(memindex, index, offset, val);
 	}
 }
 //@bytecode end
