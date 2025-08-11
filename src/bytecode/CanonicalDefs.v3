@@ -231,7 +231,7 @@ def CALL_INDIRECT() {
 	}
 }
 def RETURN_CALL() {
-	var index = imm_readULEB32();
+	var index = imm_readILEB32();
 	var sig = m_getFuncSignature(index);
 	var target = i_getFunction(index);
 	doReturnCall(sig, target);
@@ -462,7 +462,7 @@ def IF() {
 	else return doFallthru();
 }
 def ELSE() {
-	var label #sidetable = doElse();
+	var label = doElse();
 	return doBranch(label);
 }
 def END() {
