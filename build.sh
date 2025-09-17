@@ -115,12 +115,12 @@ function make_build_file() {
 if [ "$PROGRAM" = "wizeng" ]; then
     SOURCES="$ENGINE $WAVE $WASI $WALI $MONITORS $SPECTEST_MODE $WASM_MODE $WIZENG"
     if [[ "$TARGET" = "x86-64-linux" || "$TARGET" = "x86_64_linux" ]]; then
-        SOURCES="$SOURCES $WASI_X86_64_LINUX $WALI_X86_64_LINUX"
+        SOURCES="$SOURCES $WASI_X86_64_LINUX $WALI_X86_64_LINUX ../generated/FastInt.v3"
     fi
 elif [ "$PROGRAM" = "unittest" ]; then
     SOURCES="$ENGINE $UNITTEST"
     if [[ "$TARGET" = "x86-64-linux" || "$TARGET" = "x86_64_linux" ]]; then
-        SOURCES="$SOURCES $UNITTEST_X86_64_LINUX $MODULES $WASI $WASI_X86_64_LINUX"
+        SOURCES="$SOURCES $UNITTEST_X86_64_LINUX $MODULES $WASI $WASI_X86_64_LINUX ../generated/FastInt.v3"
     fi
 elif [ "$PROGRAM" = "objdump" ]; then
     SOURCES="$ENGINE src/objdump.main.v3"
