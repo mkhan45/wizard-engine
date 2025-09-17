@@ -111,6 +111,8 @@ class X86_64SimpleStub extends RiUserCode {
 // Interface to pre-generated code stubs.
 def I: X86_64Interpreter;
 component X86_64PreGenStubs {
+	var group = OptionsRegistry.newGroup("X86_64Int", null);
+	def USE_CBD_FASTINT = group.newBoolOption("cbd-fastint", true, "Use CBD Fast Int Gen"); // XXX: doesn't work?
 	private def ic = X86_64InterpreterCode.new(Pointer.NULL, Pointer.NULL, pregen_header);
 	private def hostCallStub = X86_64SimpleStub.new("host-call", 0);
 
@@ -199,7 +201,11 @@ component X86_64PreGenStubs {
 
 			var w = DataWriter.new().reset(pregen_buffer, skip, skip);
 			// Gen interpreter
-			X86_64InterpreterGen.new(ic, w).gen(range);
+			if (!USE_CBD_FASTINT.val) {
+                X86_64InterpreterGen.new(ic, w).gen(range);
+            } else {
+                CBDFastIntGen.new(ic, w).gen(range);
+            }
 			// Gen all stubs.
 			for (l = global_stub_list; l != null; l = l.tail) {
 				var stub = l.head;
