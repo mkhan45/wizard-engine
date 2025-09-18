@@ -1,0 +1,398 @@
+enum Stage {
+    VALIDATE,
+    COMPILE,
+    INTERPRET,
+}
+
+class EffectResult(stack_delta: int, ctl_xfer: bool) {}
+
+component CBDEffects {
+    def fromString(s: string) -> CBDEffect {
+        if (Strings.equal(s, "read")) return CBDEffect.Read;
+        if (Strings.equal(s, "push")) return CBDEffect.Push;
+        if (Strings.equal(s, "pop")) return CBDEffect.Pop;
+        if (Strings.equal(s, "local")) return CBDEffect.Local;
+        if (Strings.equal(s, "global")) return CBDEffect.Global;
+        if (Strings.equal(s, "memory")) return CBDEffect.Memory;
+        if (Strings.equal(s, "table")) return CBDEffect.Table;
+        if (Strings.equal(s, "ctl")) return CBDEffect.Ctl;
+        if (Strings.equal(s, "emit")) return CBDEffect.Emit;
+        if (Strings.equal(s, "trap")) return CBDEffect.Ctl; // trap is a control transfer
+        if (Strings.equal(s, "none")) return CBDEffect.None;
+        return CBDEffect.None; // default case
+    }
+
+    def run_fx(fx: Vector<CBDEffect>) -> EffectResult {
+        var sd = 0;
+        var ctl = false;
+        for (i < fx.length) {
+            if (fx[i] == CBDEffect.Push) sd += 1;
+            if (fx[i] == CBDEffect.Pop) sd -= 1;
+            if (fx[i] == CBDEffect.Ctl) ctl = true;
+        }
+        return EffectResult.new(sd, ctl);
+    }
+}
+
+type CBDEffect {
+    // TODO: type push and pop?
+    case Read;
+    case Push;
+    case Pop;
+    case Local;
+    case Global;
+    case Memory;
+    case Table;
+    case Ctl;
+    case Emit;
+    case None;
+
+    def is_stack() -> bool {
+        match (this) {
+            Push => return true;
+            Pop => return true;
+            _ => return false;
+        }
+    }
+
+    // this should probably be specific to tier
+    def is_sidetable() -> bool {
+        match (this) {
+            Ctl => return true;
+            _ => return false;
+        }
+    }
+
+    def toString() -> string {
+        match (this) {
+            Read => return "read";
+            Push => return "push";
+            Pop => return "pop";
+            Local => return "local";
+            Global => return "global";
+            Memory => return "memory";
+            Table => return "table";
+            Ctl => return "ctl";
+            Emit => return "emit";
+            None => return "none";
+        }
+    }
+}
+
+type v128(low: u64, high: u64);
+def invalid(); // XXX: should be in validator
+def invalid_t<T>(t: T) -> T {
+    invalid();
+    return t;
+}
+
+// TODO: remove
+def gen_binop<C, R>(op: (C, C) -> C) -> (R, R) -> R { 
+    return fun (lhs: R, rhs: R) => lhs; 
+}
+def gen_testop<C, R>(op: (C, C) -> bool) -> (R, R) -> R { 
+    return fun (lhs: R, rhs: R) => lhs; 
+}
+
+type TypeVar {
+    case U8;
+    case U16;
+    case U32 {
+        def binop(op: (u32, u32) -> u32) => gen_binop<u32, TypeVar.U32>(op);
+        def testop(op: (u32, u32) -> bool) => gen_testop<u32, TypeVar.U32>(op);
+    }
+    case U64 {
+        def binop(op: (u64, u64) -> u64) => gen_binop<u64, TypeVar.U64>(op);
+        def testop(op: (u64, u64) -> bool) => gen_testop<u64, TypeVar.U64>(op);
+    }
+    case F32 {
+        def binop(op: (float, float) -> float) => gen_binop<float, TypeVar.F32>(op);
+        def testop(op: (float, float) -> bool) => gen_testop<float, TypeVar.F32>(op);
+    }
+    case F64 {
+        def binop(op: (double, double) -> double) => gen_binop<double, TypeVar.F64>(op);
+        def testop(op: (double, double) -> bool) => gen_testop<double, TypeVar.F64>(op);
+    }
+    case V128 {
+        def binop(op: (v128, v128) -> v128) => gen_binop<v128, TypeVar.V128>(op);
+        def testop(op: (v128, v128) -> bool) => gen_testop<v128, TypeVar.V128>(op);
+    }
+    case Object {
+        def binop(op: (Object, Object) -> Object) => gen_binop<Object, TypeVar.Object>(op);
+        def testop(op: (Object, Object) -> bool) => gen_testop<Object, TypeVar.Object>(op);
+    }
+    case Bot(typelit: string);
+
+    def is_bot() -> bool {
+        match (this) {
+            Bot(_) => return true;
+            _ => return false;
+        }
+    }
+
+    def unbox_u32() -> TypeVar.U32 {
+        if (TypeVar.U32.?(this)) return TypeVar.U32;
+        return invalid_t(TypeVar.U32);
+    }
+
+    def unbox_u64() -> TypeVar.U64 {
+        if (TypeVar.U64.?(this)) return TypeVar.U64;
+        return invalid_t(TypeVar.U64);
+    }
+    
+    def unbox_f32() -> TypeVar.F32 {
+        if (TypeVar.F32.?(this)) return TypeVar.F32;
+        return invalid_t(TypeVar.F32);
+    }
+    
+    def unbox_f64() -> TypeVar.F64 {
+        if (TypeVar.F64.?(this)) return TypeVar.F64;
+        return invalid_t(TypeVar.F64);
+    }
+    
+    def unbox_v128() -> TypeVar.V128 {
+        if (TypeVar.V128.?(this)) return TypeVar.V128;
+        return invalid_t(TypeVar.V128);
+    }
+    
+    def unbox_Object() -> TypeVar.Object {
+        if (TypeVar.Object.?(this)) return TypeVar.Object;
+        return invalid_t(TypeVar.Object);
+    }
+    
+    def matches(other: TypeVar) -> bool {
+        return this == other;
+    }
+
+    def short_str() -> string {
+        match (this) {
+            U8 => return "u8";
+            U16 => return "u16";
+            U32 => return "u";
+            U64 => return "l";
+            F32 => return "f";
+            F64 => return "d";
+            V128 => return "v";
+            Object => return "r";
+            Bot(_) => return "V";
+        }
+    }
+
+    def long_str() -> string {
+        match (this) {
+            U8 => return "u8";
+            U16 => return "u16";
+            U32 => return "u32";
+            U64 => return "u64";
+            F32 => return "f32";
+            F64 => return "f64";
+            V128 => return "v128";
+            Object => return "Ref";
+            Bot(typelit) => return if(typelit == null, "Value", typelit);
+        }
+    }
+
+    def rt_str() -> string {
+        match (this) {
+            U8 => return "U8";
+            U16 => return "U16";
+            U32 => return "U32";
+            U64 => return "U64";
+            F32 => return "F32";
+            F64 => return "F64";
+            V128 => return "V128";
+            Object => return "REF";
+            Bot(typelit) => return if(typelit == null, "Value", typelit);
+        }
+    }
+}
+
+
+class IntrinsicType(primitive: TypeVar, stage: Stage) {
+    def isStatic() -> bool {
+        return (stage == Stage.VALIDATE) || (stage == Stage.COMPILE);
+    }
+}
+
+// maybe a list of effects
+class IntrinsicTypedef(name: string, args: Array<IntrinsicType>, return_type: IntrinsicType, effect: CBDEffect) {}
+
+def processTypeString(s: string) -> IntrinsicType {
+    def split = Strings.splitOnChar(s, u8.==(_, '.'), -1);
+    def name = Strings.strip(split[0]);
+    if (split.length < 2) {
+        // No stage specified, default to VALIDATE
+        return IntrinsicType.new(TypeUtil.fromString(name), Stage.VALIDATE);
+    }
+    def stage_string = Strings.strip(split[1]);
+    var stage: Stage = Stage.VALIDATE; // default
+    if (Strings.equal(stage_string, "V")) stage = Stage.VALIDATE;
+    if (Strings.equal(stage_string, "C")) stage = Stage.COMPILE;
+    if (Strings.equal(stage_string, "I")) stage = Stage.INTERPRET;
+    return IntrinsicType.new(TypeUtil.fromString(name), stage);
+}
+
+component TypeUtil {
+    def fromString(s: string) -> TypeVar {
+        if (Strings.equal(s, "int")) return TypeVar.U32;
+        if (Strings.equal(s, "i32")) return TypeVar.U32;
+        if (Strings.equal(s, "u32")) return TypeVar.U32;
+        if (Strings.equal(s, "i64")) return TypeVar.U64;
+        if (Strings.equal(s, "u64")) return TypeVar.U64;
+        if (Strings.equal(s, "float")) return TypeVar.F32;
+        if (Strings.equal(s, "f32")) return TypeVar.F32;
+        if (Strings.equal(s, "f64")) return TypeVar.F64;
+        if (Strings.equal(s, "double")) return TypeVar.F64;
+
+        return TypeVar.Bot(s);
+    }
+}
+
+component IntrinsicTypes {
+    def TYPE_DEF_FILE: string = "./wizard-engine/src/bytecode/Intrinsics.v3";
+    var intrinsic_types: HashMap<string, IntrinsicTypedef>;
+
+    def init(filename: string) {
+        intrinsic_types = getIntrinsicTypes(filename);
+    }
+    
+    def getIntrinsicTypes(filename: string) -> HashMap<string, IntrinsicTypedef> {
+        def typedef_file = System.fileLoad(filename);
+
+        def lines = Strings.splitOnChar(typedef_file, u8.==(_, '\n'), -1);
+        def intrinsics: HashMap<string, IntrinsicTypedef> = Strings.newMap();
+        for (line in lines) {
+            if (!Strings.startsWith(line, "def ")) continue;
+
+            def name_start = "def ".length;
+            var name_end = name_start + 1;
+            while (line[name_end] != '(') name_end += 1;
+            def name = Arrays.range(line, name_start, name_end);
+
+            def args: Vector<IntrinsicType> = Vector.new();
+            var current_arg_start = name_end + 1; // start after opening paren
+            var current_arg_end = current_arg_start;
+            while (line[current_arg_end] != ')') {
+                if (line[current_arg_start] == ')') break; // no more args
+                
+                while (line[current_arg_start] != ':') current_arg_start += 1;
+                current_arg_start += ": ".length;
+                current_arg_end = current_arg_start;
+                while (line[current_arg_end] != ',' && line[current_arg_end] != ')') current_arg_end += 1;
+                args.put(processTypeString(Arrays.range(line, current_arg_start, current_arg_end)));
+                current_arg_start = current_arg_end + 1; // advance for next iteration
+            }
+
+            // Find the closing parenthesis
+            var paren_pos = current_arg_end;
+            while (paren_pos < line.length && line[paren_pos] != ')') paren_pos += 1;
+            
+            var return_type: IntrinsicType;
+            var effect: CBDEffect = CBDEffect.None;
+            
+            // Check if there's a return type or just effects
+            var has_return_type = false;
+            var check_pos = paren_pos + 1;
+            while (check_pos < line.length && line[check_pos] == ' ') check_pos += 1; // skip spaces
+            if (check_pos < line.length && line[check_pos] == '-' && check_pos + 1 < line.length && line[check_pos + 1] == '>') {
+                has_return_type = true;
+            }
+            
+            if (!has_return_type) {
+                return_type = processTypeString("void.V");
+                // Check for effects after colon
+                var colon_pos = paren_pos + 1;
+                while (colon_pos < line.length && line[colon_pos] == ' ') colon_pos += 1; // skip spaces
+                if (colon_pos < line.length && line[colon_pos] == ':') {
+                    var effect_start = colon_pos + 1;
+                    while (effect_start < line.length && line[effect_start] == ' ') effect_start += 1; // skip spaces after colon
+                    var effect_end = effect_start;
+                    while (effect_end < line.length && line[effect_end] != ';') effect_end += 1;
+                    def effect_str = Arrays.range(line, effect_start, effect_end);
+                    effect = CBDEffects.fromString(Strings.strip(effect_str));
+                }
+            } else {
+                def type_start = paren_pos + " -> ".length + 1;
+                var type_end = type_start;
+                while (type_end < line.length && line[type_end] != ';' && line[type_end] != ':') type_end += 1;
+                return_type = processTypeString(Arrays.range(line, type_start, type_end));
+                
+                // Check for effects after colon
+                if (type_end < line.length && line[type_end] == ':') {
+                    def effect_start = type_end + 2; // skip ": "
+                    var effect_end = effect_start;
+                    while (effect_end < line.length && line[effect_end] != ';') effect_end += 1;
+                    def effect_str = Arrays.range(line, effect_start, effect_end);
+                    effect = CBDEffects.fromString(Strings.strip(effect_str));
+                }
+            }
+
+            intrinsics[name] = IntrinsicTypedef.new(name, args.copy(), return_type, effect);
+        }
+
+        return intrinsics;
+    }
+
+    def add_def(f: string, d: IntrinsicTypedef) {
+        intrinsic_types[f] = d;
+    }
+
+    def intrinsic_type(fn_name: string) -> (Array<TypeVar>, TypeVar) {
+        if (intrinsic_types.has(fn_name)) {
+            def t = intrinsic_types[fn_name];
+            return (Arrays.map(t.args, fun (a: IntrinsicType) => a.primitive), t.return_type.primitive);
+        } else {
+            return (null, TypeVar.Bot(null));
+        }
+    }
+
+    def intrinsic_static(fn_name: string) -> (Array<bool>, bool) {
+        if (intrinsic_types.has(fn_name)) {
+            def t = intrinsic_types[fn_name];
+            return (Arrays.map(t.args, fun (a: IntrinsicType) => a.isStatic()), t.return_type.isStatic());
+        } else {
+            return (null, false);
+        }
+    }
+
+    def intrinsic_effect(fn_name: string) -> CBDEffect {
+        if (intrinsic_types.has(fn_name)) {
+            def t = intrinsic_types[fn_name];
+            return t.effect;
+        } else {
+            return CBDEffect.None;
+        }
+    }
+
+    def intrinsic_stage(fn_name: string) -> Stage {
+        if (intrinsic_types.has(fn_name)) {
+            def t = intrinsic_types[fn_name];
+            return t.return_type.stage;
+        } else {
+            return Stage.VALIDATE;
+        }
+    }
+
+    def split_op(op: string) -> (TypeVar, string) {
+        def sp = Strings.splitOnChar(op, byte.==(_, '.'), 1);
+        if (sp.length < 2) return (TypeVar.Bot(null), null);
+        def tp_str = sp[0];
+        def op_str = sp[1];
+        var prose_op: string;
+        if (Strings.endsWith(op_str, "==")) prose_op = "equals";
+        if (Strings.endsWith(op_str, "!=")) prose_op = "not_equals";
+        if (Strings.endsWith(op_str, "/")) prose_op = "div";
+        if (Strings.endsWith(op_str, "&&")) prose_op = "and";
+        if (Strings.endsWith(op_str, "&")) prose_op = "and";
+        if (Strings.endsWith(op_str, "+")) prose_op = "plus";
+        if (Strings.endsWith(op_str, "-")) prose_op = "minus";
+        if (Strings.endsWith(op_str, "<")) prose_op = "lt";
+        if (Strings.endsWith(op_str, "<=")) prose_op = "lte";
+        if (Strings.endsWith(op_str, ">")) prose_op = "gt";
+        if (Strings.endsWith(op_str, "*")) prose_op = "times";
+        if (prose_op == null) prose_op = op_str;
+
+        def tp = TypeUtil.fromString(tp_str);
+        return (tp, prose_op);
+    }
+}
