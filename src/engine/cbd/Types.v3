@@ -22,7 +22,7 @@ class CBDFunction {
             V128 => return TypeVar.V128;
             Ref => return TypeVar.Object;
             Host => return TypeVar.Object;
-            BOTTOM => return TypeVar.Bot;
+            BOTTOM => return TypeVar.Bot(null);
         }
     }
 }
