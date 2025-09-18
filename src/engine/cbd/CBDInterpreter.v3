@@ -36,6 +36,11 @@ class CBDV3Interpreter(it: V3Interpreter) {
     def HAS_MEM_INDEX = 0x40u8;
     var DISPATCH_TABLE: Array<void -> void>;
 
+    def init_module(module: Module) {
+        DISPATCH_TABLE = build_dispatch_table();
+        Validator.init(module, []);
+    }
+
     // for InterpreterMain
     def init(instance: Instance, args: Array<int>) {
         def module = instance.module;
@@ -68,7 +73,7 @@ class CBDV3Interpreter(it: V3Interpreter) {
         while (it.frame != null && it.codeptr.available() > 0) {
             it.frame.pc = it.codeptr.pos;
             def opcode = it.codeptr.read_opcode();
-            System.puts(opcode.mnemonic); System.ln();
+            // System.puts(opcode.mnemonic); System.ln();
             DISPATCH_TABLE[opcode.tag]();
         }
     }
