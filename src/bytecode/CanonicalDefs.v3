@@ -50,9 +50,9 @@ def u64_reinterpret_f64(v: double) -> u64;
 def f64_reinterpret_u64(v: u64) -> double;
 
 // Signed ops.
-def u32_div_s(lhs: u32, rhs: u32) -> u32;
-def u32_lt_s(lhs: u32, rhs: u32) -> bool;
-def u32_le_s(lhs: u32, rhs: u32) -> bool;
+def U32_div_s(lhs: u32, rhs: u32) -> u32;
+def U32_lt_s(lhs: u32, rhs: u32) -> bool;
+def U32_le_s(lhs: u32, rhs: u32) -> bool;
 
 // Local variables.
 def getLocal(tv: TypeVar, index: u32) -> Value;
@@ -275,7 +275,7 @@ def I32_DIV_S() {
 	var b = pop_u32(), a = pop_u32();
 	if (u32.==(b, 0)) return trapDivideByZero();
 	if (bool.&&(u32.==(b, u32.view(-1)), u32.==(a, u32.view(-2_147_483_648)))) return trapDivideUnrepresentable();
-	var r = u32_div_s(a, b);
+	var r = U32_div_s(a, b);
 	push_u32(r);
 }
 def I32_DIV_U() {
@@ -307,12 +307,12 @@ def I32_LT_U() {
 }
 def I32_LT_S() {
 	var b = pop_u32(), a = pop_u32();
-	if (u32_lt_s(a, b)) push_u32(1);
+	if (U32_lt_s(a, b)) push_u32(1);
 	else push_u32(0);
 }
 def I32_LE_S() {
 	var b = pop_u32(), a = pop_u32();
-	if (u32_le_s(a, b)) push_u32(1);
+	if (U32_le_s(a, b)) push_u32(1);
 	else push_u32(0);
 }
 def I32_GT_U() {
@@ -324,61 +324,6 @@ def I32_AND() {
 	var b = pop_u32(), a = pop_u32();
 	var r = u32.&(a, b);
 	push_u32(r);
-}
-def F32_CONST() {
-	var x = imm_readULEB32();
-	push_f32(f32_reinterpret_u32(x));
-}
-def F32_ADD() {
-	var b = pop_f32(), a = pop_f32();
-	var r = float.+(a, b);
-	push_f32(r);
-}
-def F32_SUB() {
-	var b = pop_f32(), a = pop_f32();
-	var r = float.-(a, b);
-	push_f32(r);
-}
-def F32_MUL() {
-	var b = pop_f32(), a = pop_f32();
-	var r = float.*(a, b);
-	push_f32(r);
-}
-def F32_DIV() {
-	var b = pop_f32(), a = pop_f32();
-	if (float.==(b, 0.0f)) return trapDivideByZero();
-	var r = float./(a, b);
-	push_f32(r);
-}
-def F32_SQRT() {
-	var a = pop_f32();
-    var r = float.sqrt(a);
-    push_f32(r);
-}
-def F32_EQ() {
-	var b = pop_f32(), a = pop_f32();
-	if (float.==(a, b)) push_u32(1);
-	else push_u32(0);
-}
-def F32_NE() {
-	var b = pop_f32(), a = pop_f32();
-	if (float.!=(a, b)) push_u32(1);
-	else push_u32(0);
-}
-def F32_LT() {
-	var b = pop_f32(), a = pop_f32();
-	if (float.<(a, b)) push_u32(1);
-	else push_u32(0);
-}
-def F32_LE() {
-	var b = pop_f32(), a = pop_f32();
-	if (float.<=(a, b)) push_u32(1);
-	else push_u32(0);
-}
-def F32_GT() {
-	var b = pop_f32(), a = pop_f32();
-	if (float.>(a, b)) push_u32(1);
-	else push_u32(0);
 }
 def F32_CONST() {
 	var x = imm_readULEB32();
@@ -447,6 +392,11 @@ def BR_IF() {
 	if (u32.!=(cond, 0)) return doBranch(label);
 	else return doFallthru();
 }
+def BR_TABLE() {
+    var labels #sidetable = imm_readLabels();
+    var key = pop_u32();
+    doSwitch(labels, key);
+}
 def BLOCK() {
 	var bt = imm_readBlockType();
 	doBlock(bt);
@@ -462,12 +412,12 @@ def TRY() {
 def IF() {
 	var bt = imm_readBlockType();
 	var cond = pop_u32();
-	var label = doIf(bt);
+	var label #sidetable = doIf(bt);
 	if (u32.==(cond, 0)) return doBranch(label);
 	else return doFallthru();
 }
 def ELSE() {
-	var label = doElse();
+	var label #sidetable = doElse();
 	return doBranch(label);
 }
 def END() {
@@ -526,6 +476,7 @@ def STRUCT_GET_S() {
 	var offset #sidetable = m_getFieldOffset(struct_index, field_index);
 	var obj = pop_Object();
 	if (object_isNull(obj)) return trapNull();
+	// TODO: sign extend
 	match (kind) {
 		U8 => push_u32(u32.view(mach_readStructField_u8(obj, offset)));
 		U16 => push_u32(u32.view(mach_readStructField_u16(obj, offset)));
@@ -539,6 +490,7 @@ def STRUCT_GET_U() {
 	var offset #sidetable = m_getFieldOffset(struct_index, field_index);
 	var obj = pop_Object();
 	if (object_isNull(obj)) return trapNull();
+	// TODO: zero extend
 	match (kind) {
 		U8 => push_u32(u32.view(mach_readStructField_u8(obj, offset)));
 		U16 => push_u32(u32.view(mach_readStructField_u16(obj, offset)));
