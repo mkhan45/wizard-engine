@@ -157,7 +157,7 @@ def UNREACHABLE() {
 	trapUnreachable();
 }
 def NOP() { 
-    return void; // needed for CBD parser
+	return void; // needed for CBD parser
 }
 def LOCAL_GET() {
 	var index = imm_readULEB32();
@@ -300,7 +300,7 @@ def I32_NE() {
 	else push_u32(0);
 }
 def I32_LT_U() {
-    // TODO: not actually unsigned
+	// TODO: not actually unsigned
 	var b = pop_u32(), a = pop_u32();
 	if (u32.<(a, b)) push_u32(1);
 	else push_u32(0);
@@ -352,8 +352,8 @@ def F32_DIV() {
 }
 def F32_SQRT() {
 	var a = pop_f32();
-    var r = float.sqrt(a);
-    push_f32(r);
+	var r = float.sqrt(a);
+	push_f32(r);
 }
 def F32_EQ() {
 	var b = pop_f32(), a = pop_f32();
@@ -393,9 +393,9 @@ def BR_IF() {
 	else return doFallthru();
 }
 def BR_TABLE() {
-    var labels #sidetable = imm_readLabels();
-    var key = pop_u32();
-    doSwitch(labels, key);
+	var labels #sidetable = imm_readLabels();
+	var key = pop_u32();
+	doSwitch(labels, key);
 }
 def BLOCK() {
 	var bt = imm_readBlockType();
@@ -428,29 +428,29 @@ def RETURN() {
 	return doReturn();
 }
 def REF_NULL() {
-    def idx = imm_readULEB32();
-    push_Object(object_Null());
+	def idx = imm_readULEB32();
+	push_Object(object_Null());
 }
 def REF_IS_NULL() {
-    var obj = pop_Object();
-    if (object_isNull(obj)) {
-        push_u32(1);
-    } else {
-        push_u32(0);
-    }
+	var obj = pop_Object();
+	if (object_isNull(obj)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
 }
 def REF_AS_NON_NULL() {
-    var obj = pop_Object();
-    if (object_isNull(obj)) {
-        trapNull();
-    }
-    push_Object(obj); // XXX: wonder if we can optimize out pop->test->push in CBD
+	var obj = pop_Object();
+	if (object_isNull(obj)) {
+		trapNull();
+	}
+	push_Object(obj); // XXX: wonder if we can optimize out pop->test->push in CBD
 }
 def STRUCT_NEW() {
-    var struct_idx = imm_readULEB32();
-    def sig = m_getSignature(struct_idx);
-    def obj = object_New(sig);
-    push_Object(obj);
+	var struct_idx = imm_readULEB32();
+	def sig = m_getSignature(struct_idx);
+	def obj = object_New(sig);
+	push_Object(obj);
 }
 def STRUCT_GET() {
 	var struct_index = imm_readULEB32();
@@ -594,11 +594,11 @@ def F64_LOAD() {
 	}
 }
 def I32_STORE() {
-    var flags = imm_readU8();
-    var memindex = 0u;
+	var flags = imm_readU8();
+	var memindex = 0u;
 	if (u8.!=(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 
-    var val = pop_u32();
+	var val = pop_u32();
 	if (m_isMemory64(memindex)) {
 		var offset = imm_readULEB64();
 		var index = pop_u64();
@@ -610,11 +610,11 @@ def I32_STORE() {
 	}
 }
 def I32_STORE8() {
-    var flags = imm_readU8();
-    var memindex = 0u;
+	var flags = imm_readU8();
+	var memindex = 0u;
 	if (u8.!=(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 
-    var val = pop_u32();
+	var val = pop_u32();
 	if (m_isMemory64(memindex)) {
 		var offset = imm_readULEB64();
 		var index = pop_u64();
@@ -626,11 +626,11 @@ def I32_STORE8() {
 	}
 }
 def I32_STORE16() {
-    var flags = imm_readU8();
-    var memindex = 0u;
+	var flags = imm_readU8();
+	var memindex = 0u;
 	if (u8.!=(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 
-    var val = pop_u32();
+	var val = pop_u32();
 	if (m_isMemory64(memindex)) {
 		var offset = imm_readULEB64();
 		var index = pop_u64();
@@ -642,11 +642,11 @@ def I32_STORE16() {
 	}
 }
 def I64_STORE() {
-    var flags = imm_readU8();
-    var memindex = 0u;
+	var flags = imm_readU8();
+	var memindex = 0u;
 	if (u8.!=(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 
-    var val = pop_u64();
+	var val = pop_u64();
 	if (m_isMemory64(memindex)) {
 		var offset = imm_readULEB64();
 		var index = pop_u64();
@@ -658,11 +658,11 @@ def I64_STORE() {
 	}
 }
 def F32_STORE() {
-    var flags = imm_readU8();
-    var memindex = 0u;
+	var flags = imm_readU8();
+	var memindex = 0u;
 	if (u8.!=(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 
-    var val = pop_f32();
+	var val = pop_f32();
 	if (m_isMemory64(memindex)) {
 		var offset = imm_readULEB64();
 		var index = pop_u64();
@@ -674,11 +674,11 @@ def F32_STORE() {
 	}
 }
 def F64_STORE() {
-    var flags = imm_readU8();
-    var memindex = 0u;
+	var flags = imm_readU8();
+	var memindex = 0u;
 	if (u8.!=(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 
-    var val = pop_f64();
+	var val = pop_f64();
 	if (m_isMemory64(memindex)) {
 		var offset = imm_readULEB64();
 		var index = pop_u64();
