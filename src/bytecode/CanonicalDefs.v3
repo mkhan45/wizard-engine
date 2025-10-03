@@ -500,7 +500,7 @@ def STRUCT_GET_U() {
 def I32_LOAD() {
 	var flags = imm_readU8();
 	var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 	if (m_isMemory64(memindex)) {
 		var offset = imm_readULEB64();
 		var index = pop_u64();
@@ -516,7 +516,7 @@ def I32_LOAD() {
 def I32_LOAD8_U() {
 	var flags = imm_readU8();
 	var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 	if (m_isMemory64(memindex)) {
 		var offset = imm_readULEB64();
 		var index = pop_u64();
@@ -532,7 +532,7 @@ def I32_LOAD8_U() {
 def I32_LOAD16_S() {
 	var flags = imm_readU8();
 	var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 	if (m_isMemory64(memindex)) {
 		var offset = imm_readULEB64();
 		var index = pop_u64();
@@ -548,7 +548,7 @@ def I32_LOAD16_S() {
 def I64_LOAD() {
 	var flags = imm_readU8();
 	var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 	if (m_isMemory64(memindex)) {
 		var offset = imm_readULEB64();
 		var index = pop_u64();
@@ -564,7 +564,7 @@ def I64_LOAD() {
 def F32_LOAD() {
 	var flags = imm_readU8();
 	var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 	if (m_isMemory64(memindex)) {
 		var offset = imm_readULEB64();
 		var index = pop_u64();
@@ -580,7 +580,7 @@ def F32_LOAD() {
 def F64_LOAD() {
 	var flags = imm_readU8();
 	var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 	if (m_isMemory64(memindex)) {
 		var offset = imm_readULEB64();
 		var index = pop_u64();
@@ -596,7 +596,7 @@ def F64_LOAD() {
 def I32_STORE() {
     var flags = imm_readU8();
     var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 
     var val = pop_u32();
 	if (m_isMemory64(memindex)) {
@@ -612,7 +612,7 @@ def I32_STORE() {
 def I32_STORE8() {
     var flags = imm_readU8();
     var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 
     var val = pop_u32();
 	if (m_isMemory64(memindex)) {
@@ -628,7 +628,7 @@ def I32_STORE8() {
 def I32_STORE16() {
     var flags = imm_readU8();
     var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 
     var val = pop_u32();
 	if (m_isMemory64(memindex)) {
@@ -644,7 +644,7 @@ def I32_STORE16() {
 def I64_STORE() {
     var flags = imm_readU8();
     var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 
     var val = pop_u64();
 	if (m_isMemory64(memindex)) {
@@ -660,7 +660,7 @@ def I64_STORE() {
 def F32_STORE() {
     var flags = imm_readU8();
     var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 
     var val = pop_f32();
 	if (m_isMemory64(memindex)) {
@@ -676,7 +676,7 @@ def F32_STORE() {
 def F64_STORE() {
     var flags = imm_readU8();
     var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 
     var val = pop_f64();
 	if (m_isMemory64(memindex)) {
@@ -696,7 +696,7 @@ def F64_STORE() {
 @macro LOAD<T> `
 	var flags = imm_readU8();
 	var memindex: i32 = 0u;
-	if (u8.!=(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 	if (m_isMemory64(memindex)) { // #sidetable
 		var offset = imm_readULEB64();
 		var index = pop_ ## T();
