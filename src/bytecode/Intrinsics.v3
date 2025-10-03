@@ -104,7 +104,7 @@ def doFallthru() : ctl;
 def doBlock(bt: BlockType.V) : ctl;
 def doLoop(bt: BlockType.V) : ctl;
 def doTry(bt: BlockType.V) : ctl;
-def doIf() : ctl;
+def doIf(bt: BlockType.V) : ctl;
 def doElse() : ctl;
 def doEnd() : ctl;
 def doCall(sig: Signature.V, target: Function.V) : ctl;
