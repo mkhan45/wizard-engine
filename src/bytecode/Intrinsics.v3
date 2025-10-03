@@ -103,7 +103,7 @@ def doFallthru() : ctl;
 def doBlock(bt: BlockType.V) : ctl;
 def doLoop(bt: BlockType.V) : ctl;
 def doTry(bt: BlockType.V) : ctl;
-def doIf() : ctl;
+def doIf(bt: BlockType.V) : ctl;
 def doElse() : ctl;
 def doEnd() : ctl;
 def doCall(sig: Signature.V, target: Function.V) : ctl;
@@ -168,3 +168,4 @@ def rtcast_f32(f: f32.V) -> f32.I;
 
 def object_isNull(obj: Object.I) -> u32.V;
 def object_New(sig: Signature.V) -> Object.I;
+def object_Null() -> Object.I;
