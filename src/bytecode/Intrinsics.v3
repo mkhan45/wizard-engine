@@ -137,6 +137,8 @@ def float.<=(lhs: f32.V, rhs: f32.V) -> u32.V;
 def float.>(lhs: f32.V, rhs: f32.V) -> u32.V;
 def float.sqrt(x: f32.V) -> f32.V;
 
+def U8_and(lhs: u32.I, rhs: u32.I) -> u32.I;
+
 def U32_equals(lhs: u32.I, rhs: u32.I) -> u32.I;
 def U32_not_equals(lhs: u32.I, rhs: u32.I) -> u32.I;
 def U32_plus(lhs: u32.I, rhs: u32.I) -> u32.I;
