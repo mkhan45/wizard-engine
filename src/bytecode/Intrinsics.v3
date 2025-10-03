@@ -112,6 +112,7 @@ def doBranch(label: Label.V) : ctl;
 
 def u8.&(lhs: u8.V, rhs: u8.V) -> u8.V;
 def u8.==(lhs: u8.V, rhs: u8.V) -> u8.V;
+def u8.!=(lhs: u8.V, rhs: u8.V) -> u8.V;
 
 def u32.==(lhs: u32.V, rhs: u32.V) -> u32.V;
 def u32.!=(lhs: u32.V, rhs: u32.V) -> u32.V;
