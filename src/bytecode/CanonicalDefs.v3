@@ -51,8 +51,52 @@ def f64_reinterpret_u64(v: u64) -> double;
 
 // Signed ops.
 def U32_div_s(lhs: u32, rhs: u32) -> u32;
+def U32_rem_s(lhs: u32, rhs: u32) -> u32;
+def U32_rem_u(lhs: u32, rhs: u32) -> u32;
 def U32_lt_s(lhs: u32, rhs: u32) -> bool;
 def U32_le_s(lhs: u32, rhs: u32) -> bool;
+def U32_gt_s(lhs: u32, rhs: u32) -> bool;
+def U32_ge_s(lhs: u32, rhs: u32) -> bool;
+def U32_ge_u(lhs: u32, rhs: u32) -> bool;
+
+// Bitwise ops.
+def U32_clz(x: u32) -> u32;
+def U32_ctz(x: u32) -> u32;
+def U32_popcnt(x: u32) -> u32;
+def U32_shl(lhs: u32, rhs: u32) -> u32;
+def U32_shr_u(lhs: u32, rhs: u32) -> u32;
+def U32_shr_s(lhs: u32, rhs: u32) -> u32;
+def U32_rotl(lhs: u32, rhs: u32) -> u32;
+def U32_rotr(lhs: u32, rhs: u32) -> u32;
+
+// Extension ops.
+def U32_extend8_s(x: u32) -> u32;
+def U32_extend16_s(x: u32) -> u32;
+
+// U64 Signed ops.
+def U64_div_s(lhs: u64, rhs: u64) -> u64;
+def U64_rem_s(lhs: u64, rhs: u64) -> u64;
+def U64_rem_u(lhs: u64, rhs: u64) -> u64;
+def U64_lt_s(lhs: u64, rhs: u64) -> bool;
+def U64_le_s(lhs: u64, rhs: u64) -> bool;
+def U64_gt_s(lhs: u64, rhs: u64) -> bool;
+def U64_ge_s(lhs: u64, rhs: u64) -> bool;
+def U64_ge_u(lhs: u64, rhs: u64) -> bool;
+
+// U64 Bitwise ops.
+def U64_clz(x: u64) -> u64;
+def U64_ctz(x: u64) -> u64;
+def U64_popcnt(x: u64) -> u64;
+def U64_shl(lhs: u64, rhs: u64) -> u64;
+def U64_shr_u(lhs: u64, rhs: u64) -> u64;
+def U64_shr_s(lhs: u64, rhs: u64) -> u64;
+def U64_rotl(lhs: u64, rhs: u64) -> u64;
+def U64_rotr(lhs: u64, rhs: u64) -> u64;
+
+// U64 Extension ops.
+def U64_extend8_s(x: u64) -> u64;
+def U64_extend16_s(x: u64) -> u64;
+def U64_extend32_s(x: u64) -> u64;
 
 // Local variables.
 def getLocal(tv: TypeVar, index: u32) -> Value;
@@ -320,10 +364,271 @@ def I32_GT_U() {
 	if (u32.>(a, b)) push_u32(1);
 	else push_u32(0);
 }
+def I32_LE_U() {
+	var b = pop_u32(), a = pop_u32();
+	if (u32.<=(a, b)) push_u32(1);
+	else push_u32(0);
+}
+def I32_GT_S() {
+	var b = pop_u32(), a = pop_u32();
+	if (U32_gt_s(a, b)) push_u32(1);
+	else push_u32(0);
+}
+def I32_GE_U() {
+	var b = pop_u32(), a = pop_u32();
+	if (U32_ge_u(a, b)) push_u32(1);
+	else push_u32(0);
+}
+def I32_GE_S() {
+	var b = pop_u32(), a = pop_u32();
+	if (U32_ge_s(a, b)) push_u32(1);
+	else push_u32(0);
+}
 def I32_AND() {
 	var b = pop_u32(), a = pop_u32();
 	var r = u32.&(a, b);
 	push_u32(r);
+}
+def I32_OR() {
+	var b = pop_u32(), a = pop_u32();
+	var r = u32.|(a, b);
+	push_u32(r);
+}
+def I32_XOR() {
+	var b = pop_u32(), a = pop_u32();
+	var r = u32.^(a, b);
+	push_u32(r);
+}
+def I32_SHL() {
+	var b = pop_u32(), a = pop_u32();
+	var r = U32_shl(a, b);
+	push_u32(r);
+}
+def I32_SHR_U() {
+	var b = pop_u32(), a = pop_u32();
+	var r = U32_shr_u(a, b);
+	push_u32(r);
+}
+def I32_SHR_S() {
+	var b = pop_u32(), a = pop_u32();
+	var r = U32_shr_s(a, b);
+	push_u32(r);
+}
+def I32_ROTL() {
+	var b = pop_u32(), a = pop_u32();
+	var r = U32_rotl(a, b);
+	push_u32(r);
+}
+def I32_ROTR() {
+	var b = pop_u32(), a = pop_u32();
+	var r = U32_rotr(a, b);
+	push_u32(r);
+}
+def I32_CLZ() {
+	var a = pop_u32();
+	var r = U32_clz(a);
+	push_u32(r);
+}
+def I32_CTZ() {
+	var a = pop_u32();
+	var r = U32_ctz(a);
+	push_u32(r);
+}
+def I32_POPCNT() {
+	var a = pop_u32();
+	var r = U32_popcnt(a);
+	push_u32(r);
+}
+def I32_REM_S() {
+	var b = pop_u32(), a = pop_u32();
+	if (u32.==(b, 0)) return trapDivideByZero();
+	var r = U32_rem_s(a, b);
+	push_u32(r);
+}
+def I32_REM_U() {
+	var b = pop_u32(), a = pop_u32();
+	if (u32.==(b, 0)) return trapDivideByZero();
+	var r = U32_rem_u(a, b);
+	push_u32(r);
+}
+def I32_EXTEND8_S() {
+	var a = pop_u32();
+	var r = U32_extend8_s(a);
+	push_u32(r);
+}
+def I32_EXTEND16_S() {
+	var a = pop_u32();
+	var r = U32_extend16_s(a);
+	push_u32(r);
+}
+def I64_CONST() {
+	var x = imm_readILEB64();
+	push_u64(x);
+}
+def I64_ADD() {
+	var b = pop_u64(), a = pop_u64();
+	var r = u64.+(a, b);
+	push_u64(r);
+}
+def I64_SUB() {
+	var b = pop_u64(), a = pop_u64();
+	var r = u64.-(a, b);
+	push_u64(r);
+}
+def I64_MUL() {
+	var b = pop_u64(), a = pop_u64();
+	var r = u64.*(a, b);
+	push_u64(r);
+}
+def I64_DIV_S() {
+	var b = pop_u64(), a = pop_u64();
+	if (u64.==(b, 0)) return trapDivideByZero();
+	if (bool.&&(u64.==(b, u64.view(-1)), u64.==(a, u64.view(-9223372036854775808L)))) return trapDivideUnrepresentable();
+	var r = U64_div_s(a, b);
+	push_u64(r);
+}
+def I64_DIV_U() {
+	var b = pop_u64(), a = pop_u64();
+	if (u64.==(b, 0)) return trapDivideByZero();
+	var r = u64./(a, b);
+	push_u64(r);
+}
+def I64_REM_S() {
+	var b = pop_u64(), a = pop_u64();
+	if (u64.==(b, 0)) return trapDivideByZero();
+	var r = U64_rem_s(a, b);
+	push_u64(r);
+}
+def I64_REM_U() {
+	var b = pop_u64(), a = pop_u64();
+	if (u64.==(b, 0)) return trapDivideByZero();
+	var r = U64_rem_u(a, b);
+	push_u64(r);
+}
+def I64_AND() {
+	var b = pop_u64(), a = pop_u64();
+	var r = u64.&(a, b);
+	push_u64(r);
+}
+def I64_OR() {
+	var b = pop_u64(), a = pop_u64();
+	var r = u64.|(a, b);
+	push_u64(r);
+}
+def I64_XOR() {
+	var b = pop_u64(), a = pop_u64();
+	var r = u64.^(a, b);
+	push_u64(r);
+}
+def I64_SHL() {
+	var b = pop_u64(), a = pop_u64();
+	var r = U64_shl(a, b);
+	push_u64(r);
+}
+def I64_SHR_U() {
+	var b = pop_u64(), a = pop_u64();
+	var r = U64_shr_u(a, b);
+	push_u64(r);
+}
+def I64_SHR_S() {
+	var b = pop_u64(), a = pop_u64();
+	var r = U64_shr_s(a, b);
+	push_u64(r);
+}
+def I64_ROTL() {
+	var b = pop_u64(), a = pop_u64();
+	var r = U64_rotl(a, b);
+	push_u64(r);
+}
+def I64_ROTR() {
+	var b = pop_u64(), a = pop_u64();
+	var r = U64_rotr(a, b);
+	push_u64(r);
+}
+def I64_CLZ() {
+	var a = pop_u64();
+	var r = U64_clz(a);
+	push_u64(r);
+}
+def I64_CTZ() {
+	var a = pop_u64();
+	var r = U64_ctz(a);
+	push_u64(r);
+}
+def I64_POPCNT() {
+	var a = pop_u64();
+	var r = U64_popcnt(a);
+	push_u64(r);
+}
+def I64_EQZ() {
+	var a = pop_u64();
+	if (u64.==(a, 0)) push_u32(1);
+	else push_u32(0);
+}
+def I64_EQ() {
+	var b = pop_u64(), a = pop_u64();
+	if (u64.==(a, b)) push_u32(1);
+	else push_u32(0);
+}
+def I64_NE() {
+	var b = pop_u64(), a = pop_u64();
+	if (u64.!=(a, b)) push_u32(1);
+	else push_u32(0);
+}
+def I64_LT_S() {
+	var b = pop_u64(), a = pop_u64();
+	if (U64_lt_s(a, b)) push_u32(1);
+	else push_u32(0);
+}
+def I64_LT_U() {
+	var b = pop_u64(), a = pop_u64();
+	if (u64.<(a, b)) push_u32(1);
+	else push_u32(0);
+}
+def I64_LE_S() {
+	var b = pop_u64(), a = pop_u64();
+	if (U64_le_s(a, b)) push_u32(1);
+	else push_u32(0);
+}
+def I64_LE_U() {
+	var b = pop_u64(), a = pop_u64();
+	if (u64.<=(a, b)) push_u32(1);
+	else push_u32(0);
+}
+def I64_GT_S() {
+	var b = pop_u64(), a = pop_u64();
+	if (U64_gt_s(a, b)) push_u32(1);
+	else push_u32(0);
+}
+def I64_GT_U() {
+	var b = pop_u64(), a = pop_u64();
+	if (u64.>(a, b)) push_u32(1);
+	else push_u32(0);
+}
+def I64_GE_S() {
+	var b = pop_u64(), a = pop_u64();
+	if (U64_ge_s(a, b)) push_u32(1);
+	else push_u32(0);
+}
+def I64_GE_U() {
+	var b = pop_u64(), a = pop_u64();
+	if (U64_ge_u(a, b)) push_u32(1);
+	else push_u32(0);
+}
+def I64_EXTEND8_S() {
+	var a = pop_u64();
+	var r = U64_extend8_s(a);
+	push_u64(r);
+}
+def I64_EXTEND16_S() {
+	var a = pop_u64();
+	var r = U64_extend16_s(a);
+	push_u64(r);
+}
+def I64_EXTEND32_S() {
+	var a = pop_u64();
+	var r = U64_extend32_s(a);
+	push_u64(r);
 }
 def F32_CONST() {
 	var x = imm_readULEB32();
@@ -747,7 +1052,7 @@ def F64_STORE() {
 def I32_STORE8() {
     var flags = imm_readU8();
     var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0u8)) memindex = imm_readULEB32();
 
     var val = pop_u32();
 	if (m_isMemory64(memindex)) {
@@ -763,7 +1068,7 @@ def I32_STORE8() {
 def I32_STORE16() {
     var flags = imm_readU8();
     var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0u8)) memindex = imm_readULEB32();
 
     var val = pop_u32();
 	if (m_isMemory64(memindex)) {
@@ -779,7 +1084,7 @@ def I32_STORE16() {
 def I64_STORE() {
     var flags = imm_readU8();
     var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0u8)) memindex = imm_readULEB32();
 
     var val = pop_u64();
 	if (m_isMemory64(memindex)) {
@@ -795,7 +1100,7 @@ def I64_STORE() {
 def F32_STORE() {
     var flags = imm_readU8();
     var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0u8)) memindex = imm_readULEB32();
 
     var val = pop_f32();
 	if (m_isMemory64(memindex)) {
@@ -811,7 +1116,7 @@ def F32_STORE() {
 def F64_STORE() {
     var flags = imm_readU8();
     var memindex = 0u;
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0u8)) memindex = imm_readULEB32();
 
     var val = pop_f64();
 	if (m_isMemory64(memindex)) {
