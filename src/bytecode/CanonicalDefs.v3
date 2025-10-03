@@ -1000,7 +1000,7 @@ def F64_STORE() {
 @macro LOAD<T> `
 	var flags = imm_readU8();
 	var memindex: i32 = 0u;
-	if (u8.!=(u8.&(flags, HAS_MEM_INDEX), 0)) memindex = imm_readULEB32();
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) memindex = imm_readULEB32();
 	if (m_isMemory64(memindex)) { // #sidetable
 		var offset = imm_readULEB64();
 		var index = pop_ ## T();
