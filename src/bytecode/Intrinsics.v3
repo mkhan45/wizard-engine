@@ -170,3 +170,4 @@ def rtcast_f32(f: f32.V) -> f32.I;
 
 def object_isNull(obj: Object.I) -> u32.V;
 def object_New(sig: Signature.V) -> Object.I;
+def object_Null() -> Object.I;
