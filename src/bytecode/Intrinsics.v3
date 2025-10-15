@@ -151,8 +151,25 @@ def U32_div(lhs: u32.I, rhs: u32.I) -> u32.I;
 def U32_lt(lhs: u32.I, rhs: u32.I) -> u32.I;
 def U32_lte(lhs: u32.I, rhs: u32.I) -> u32.I;
 def U32_gt(lhs: u32.I, rhs: u32.I) -> u32.I;
+def U32_ge(lhs: u32.I, rhs: u32.I) -> u32.I;
+def U32_gt_s(lhs: u32.I, rhs: u32.I) -> u32.I;
+def U32_ge_s(lhs: u32.I, rhs: u32.I) -> u32.I;
 def U32_times(lhs: u32.I, rhs: u32.I) -> u32.I;
 def U32_and(lhs: u32.I, rhs: u32.I) -> u32.I;
+
+def U64_equals(lhs: u64.I, rhs: u64.I) -> u64.I;
+def U64_not_equals(lhs: u64.I, rhs: u64.I) -> u64.I;
+def U64_plus(lhs: u64.I, rhs: u64.I) -> u64.I;
+def U64_minus(lhs: u64.I, rhs: u64.I) -> u64.I;
+def U64_div(lhs: u64.I, rhs: u64.I) -> u64.I;
+def U64_lt(lhs: u64.I, rhs: u64.I) -> u64.I;
+def U64_lte(lhs: u64.I, rhs: u64.I) -> u64.I;
+def U64_gt(lhs: u64.I, rhs: u64.I) -> u64.I;
+def U64_ge(lhs: u64.I, rhs: u64.I) -> u64.I;
+def U64_gt_s(lhs: u64.I, rhs: u64.I) -> u64.I;
+def U64_ge_s(lhs: u64.I, rhs: u64.I) -> u64.I;
+def U64_times(lhs: u64.I, rhs: u64.I) -> u64.I;
+def U64_and(lhs: u64.I, rhs: u64.I) -> u64.I;
 
 def F32_equals(lhs: f32.I, rhs: f32.I) -> u32.I;
 def F32_not_equals(lhs: f32.I, rhs: f32.I) -> u32.I;
@@ -170,6 +187,11 @@ def f64_reinterpret_u64(i: u64.I) -> f64.I;
 def rtcast_u32(i: u32.V) -> u32.I;
 def rtcast_f32(f: f32.V) -> f32.I;
 
-def object_isNull(obj: Object.I) -> u32.V;
+def object_isNull(obj: Object.I) -> u32.I;
 def object_New(sig: Signature.V) -> Object.I;
 def object_Null() -> Object.I;
+
+def U32_maybeTrue(x: u32.I) -> bool.I;
+def U32_maybeFalse(x: u32.I) -> bool.I;
+def U64_maybeTrue(x: u64.I) -> bool.I;
+def U64_maybeFalse(x: u64.I) -> bool.I;
