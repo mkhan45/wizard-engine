@@ -30,6 +30,12 @@ class CBDWasmStack(cbd_interpreter: CBDV3Interpreter) extends WasmStack {
     // def tryHandleSwitch = it.tryHandleSwitch;
 }
 
+def conv_i32_op(op: (i32, i32) -> i32) -> ((u32, u32) -> u32) => fun (x, y) => u32.view(op(i32.view(x), i32.view(y)));
+def conv_i32_testop(op: (i32, i32) -> bool) -> ((u32, u32) -> bool) => fun (x, y) => op(i32.view(x), i32.view(y));
+
+def conv_i64_op(op: (i64, i64) -> i64) -> ((u64, u64) -> u64) => fun (x, y) => u64.view(op(i64.view(x), i64.view(y)));
+def conv_i64_testop(op: (i64, i64) -> bool) -> ((u64, u64) -> bool) => fun (x, y) => op(i64.view(x), i64.view(y));
+
 class CBDV3Interpreter(it: V3Interpreter) {
     // can't extend V3Interpreter directly bc some intrinsics overlap with method names
 
@@ -48,8 +54,9 @@ class CBDV3Interpreter(it: V3Interpreter) {
     def init(instance: Instance, args: Array<int>) {
         def module = instance.module;
         DISPATCH_TABLE = build_dispatch_table();
-        for (op in Opcode) {
-            if (DISPATCH_TABLE[op.tag] == null) DISPATCH_TABLE[op.tag] = fun => it.execOp(it.frame.pc, op);
+        for (op in Opcode) if (op.tag < DISPATCH_TABLE.length) { // XXX: why bounds check?
+            // if (DISPATCH_TABLE[op.tag] == null) DISPATCH_TABLE[op.tag] = fun => it.execOp(it.frame.pc, op);
+            if (DISPATCH_TABLE[op.tag] == null) DISPATCH_TABLE[op.tag] = trapUnreachable;
         }
 
         var main_idx = -1;
@@ -392,9 +399,47 @@ class CBDV3Interpreter(it: V3Interpreter) {
     def u32_reinterpret_f32(f: float) -> u32;
     def u64_reinterpret_f64(f: double) -> u64;
 
-    def U32_div_s(lhs: u32, rhs: u32) -> u32 => u32.view(i32.view(lhs) / i32.view(rhs));
-    def U32_lt_s(lhs: u32, rhs: u32) -> bool => i32.view(lhs) < i32.view(rhs);
-    def U32_le_s(lhs: u32, rhs: u32) -> bool => i32.view(lhs) <= i32.view(rhs);
+     // XXX: traps
+    def U32_div_s = conv_i32_op(i32./);
+    def U32_rem_s = conv_i32_op(i32.%);
+    def U32_rem_u(x: u32, y: u32) => x % y;
+    def U32_lt_s = conv_i32_testop(i32.<);
+    def U32_le_s = conv_i32_testop(i32.<=);
+    def U32_gt_s = conv_i32_testop(i32.>);
+    def U32_ge_s = conv_i32_testop(i32.>=);
+    def U32_ge_u(x: u32, y: u32) => x >= y;
+
+    def U32_clz = V3Eval.I32_CLZ;
+    def U32_ctz = V3Eval.I32_CTZ;
+    def U32_popcnt = V3Eval.I32_POPCNT;
+    def U32_shl = conv_i32_op(V3Eval.I32_SHL);
+    def U32_shr_u = conv_i32_op(V3Eval.I32_SHR_U);
+    def U32_shr_s = conv_i32_op(V3Eval.I32_SHR_S);
+    def U32_rotl = V3Eval.I32_ROTL;
+    def U32_rotr = V3Eval.I32_ROTR;
+    def U32_extend8_s(x: u32) => u32.view(V3Eval.I32_EXTEND8_S(int.view(x)));
+    def U32_extend16_s(x: u32) => u32.view(V3Eval.I32_EXTEND16_S(int.view(x)));
+
+    def U64_div_s = conv_i64_op(i64./);
+    def U64_rem_s = conv_i64_op(i64.%);
+    def U64_rem_u(x: u64, y: u64) => x % y;
+    def U64_lt_s = conv_i64_testop(i64.<);
+    def U64_le_s = conv_i64_testop(i64.<=);
+    def U64_gt_s = conv_i64_testop(i64.>);
+    def U64_ge_s = conv_i64_testop(i64.>=);
+    def U64_ge_u(x: u64, y: u64) => x >= y;
+
+    def U64_clz = V3Eval.I64_CLZ;
+    def U64_ctz = V3Eval.I64_CTZ;
+    def U64_popcnt = V3Eval.I64_POPCNT;
+    def U64_shl = V3Eval.I64_SHL;
+    def U64_shr_u = V3Eval.I64_SHR_U;
+    def U64_shr_s = conv_i64_op(V3Eval.I64_SHR_S);
+    def U64_rotl = V3Eval.I64_ROTL;
+    def U64_rotr = V3Eval.I64_ROTR;
+    def U64_extend8_s(x: u64) => u64.view(V3Eval.I64_EXTEND8_S(int.view(x)));
+    def U64_extend16_s(x: u64) => u64.view(V3Eval.I64_EXTEND16_S(int.view(x)));
+    def U64_extend32_s(x: u64) => u64.view(V3Eval.I64_EXTEND32_S(int.view(x)));
 
     def get_st_entry(size: int) -> Range<u8> {
         def stp = it.frame.stp;
@@ -461,9 +506,9 @@ def TABLE_GET() {
 		def val = mach_readTable64(table_index, index);
 		push_Object(val);
 	} else {
-		def index1 = pop_u32();
-		def val1 = mach_readTable32(table_index, index1);
-		push_Object(val1);
+		def index = pop_u32();
+		def val = mach_readTable32(table_index, index);
+		push_Object(val);
 	}
 }
 def TABLE_SET() {
@@ -474,9 +519,9 @@ def TABLE_SET() {
 		def index = pop_u64();
 		mach_writeTable64(table_index, index, val);
 	} else {
-		def val1 = pop_Object();
-		def index1 = pop_u32();
-		mach_writeTable32(table_index, index1, val1);
+		def val = pop_Object();
+		def index = pop_u32();
+		mach_writeTable32(table_index, index, val);
 	}
 }
 def CALL() {
@@ -496,9 +541,9 @@ def CALL_INDIRECT() {
 		def target = i_getTableFunction64(table_index, sig, func_index);
 		doCall(sig, target);
 	} else {
-		def func_index1 = pop_u32();
-		def target1 = i_getTableFunction32(table_index, sig, func_index1);
-		doCall(sig, target1);
+		def func_index = pop_u32();
+		def target = i_getTableFunction32(table_index, sig, func_index);
+		doCall(sig, target);
 	}
 }
 def RETURN_CALL() {
@@ -546,20 +591,23 @@ def I32_DIV_S() {
 	def a = pop_u32();
 	if (u32.==(b, 0)) {
 		trapDivideByZero();
+	} else {
+		def cond = bool.&&(u32.==(b, u32.view(-1)), u32.==(a, u32.view(-2_147_483_648)));
+		if (cond) {
+			trapDivideUnrepresentable();
+		} else {
+			push_u32(U32_div_s(a, b));
+		}
 	}
-	def cond = bool.&&(u32.==(b, u32.view(-1)), u32.==(a, u32.view(-2_147_483_648)));
-	if (cond) {
-		trapDivideUnrepresentable();
-	}
-	push_u32(U32_div_s(a, b));
 }
 def I32_DIV_U() {
 	def b = pop_u32();
 	def a = pop_u32();
 	if (u32.==(b, 0)) {
 		trapDivideByZero();
+	} else {
+		push_u32(u32./(a, b));
 	}
-	push_u32(u32./(a, b));
 }
 def I32_EQZ() {
 	def a = pop_u32();
@@ -623,10 +671,346 @@ def I32_GT_U() {
 		push_u32(0);
 	}
 }
+def I32_LE_U() {
+	def b = pop_u32();
+	def a = pop_u32();
+	if (u32.<=(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I32_GT_S() {
+	def b = pop_u32();
+	def a = pop_u32();
+	if (U32_gt_s(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I32_GE_U() {
+	def b = pop_u32();
+	def a = pop_u32();
+	if (u32.>=(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I32_GE_S() {
+	def b = pop_u32();
+	def a = pop_u32();
+	if (U32_ge_s(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
 def I32_AND() {
 	def b = pop_u32();
 	def a = pop_u32();
 	push_u32(u32.&(a, b));
+}
+def I32_OR() {
+	def b = pop_u32();
+	def a = pop_u32();
+	push_u32(u32.|(a, b));
+}
+def I32_XOR() {
+	def b = pop_u32();
+	def a = pop_u32();
+	push_u32(u32.^(a, b));
+}
+def I32_SHL() {
+	def b = pop_u32();
+	def a = pop_u32();
+	push_u32(U32_shl(a, b));
+}
+def I32_SHR_U() {
+	def b = pop_u32();
+	def a = pop_u32();
+	push_u32(U32_shr_u(a, b));
+}
+def I32_SHR_S() {
+	def b = pop_u32();
+	def a = pop_u32();
+	push_u32(U32_shr_s(a, b));
+}
+def I32_ROTL() {
+	def b = pop_u32();
+	def a = pop_u32();
+	push_u32(U32_rotl(a, b));
+}
+def I32_ROTR() {
+	def b = pop_u32();
+	def a = pop_u32();
+	push_u32(U32_rotr(a, b));
+}
+def I32_CLZ() {
+	def a = pop_u32();
+	push_u32(U32_clz(a));
+}
+def I32_CTZ() {
+	def a = pop_u32();
+	push_u32(U32_ctz(a));
+}
+def I32_POPCNT() {
+	def a = pop_u32();
+	push_u32(U32_popcnt(a));
+}
+def I32_REM_S() {
+	def b = pop_u32();
+	def a = pop_u32();
+	if (u32.==(b, 0)) {
+		trapDivideByZero();
+	} else {
+		push_u32(U32_rem_s(a, b));
+	}
+}
+def I32_REM_U() {
+	def b = pop_u32();
+	def a = pop_u32();
+	if (u32.==(b, 0)) {
+		trapDivideByZero();
+	} else {
+		push_u32(U32_rem_u(a, b));
+	}
+}
+def I32_EXTEND8_S() {
+	def a = pop_u32();
+	def r = U32_extend8_s(a);
+	push_u32(r);
+}
+def I32_EXTEND16_S() {
+	def a = pop_u32();
+	def r = U32_extend16_s(a);
+	push_u32(r);
+}
+def I64_CONST() {
+	def x = imm_readILEB64();
+	push_u64(x);
+}
+def I64_ADD() {
+	def b = pop_u64();
+	def a = pop_u64();
+	push_u64(u64.+(a, b));
+}
+def I64_SUB() {
+	def b = pop_u64();
+	def a = pop_u64();
+	push_u64(u64.-(a, b));
+}
+def I64_MUL() {
+	def b = pop_u64();
+	def a = pop_u64();
+	push_u64(u64.*(a, b));
+}
+def I64_DIV_S() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (u64.==(b, 0)) {
+		trapDivideByZero();
+	} else {
+		def cond = bool.&&(u64.==(b, u64.view(-1)), u64.==(a, u64.view(-9223372036854775808L)));
+		if (cond) {
+			trapDivideUnrepresentable();
+		} else {
+			push_u64(U64_div_s(a, b));
+		}
+	}
+}
+def I64_DIV_U() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (u64.==(b, 0)) {
+		trapDivideByZero();
+	} else {
+		push_u64(u64./(a, b));
+	}
+}
+def I64_REM_S() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (u64.==(b, 0)) {
+		trapDivideByZero();
+	} else {
+		push_u64(U64_rem_s(a, b));
+	}
+}
+def I64_REM_U() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (u64.==(b, 0)) {
+		trapDivideByZero();
+	} else {
+		push_u64(U64_rem_u(a, b));
+	}
+}
+def I64_AND() {
+	def b = pop_u64();
+	def a = pop_u64();
+	push_u64(u64.&(a, b));
+}
+def I64_OR() {
+	def b = pop_u64();
+	def a = pop_u64();
+	push_u64(u64.|(a, b));
+}
+def I64_XOR() {
+	def b = pop_u64();
+	def a = pop_u64();
+	push_u64(u64.^(a, b));
+}
+def I64_SHL() {
+	def b = pop_u64();
+	def a = pop_u64();
+	push_u64(U64_shl(a, b));
+}
+def I64_SHR_U() {
+	def b = pop_u64();
+	def a = pop_u64();
+	push_u64(U64_shr_u(a, b));
+}
+def I64_SHR_S() {
+	def b = pop_u64();
+	def a = pop_u64();
+	push_u64(U64_shr_s(a, b));
+}
+def I64_ROTL() {
+	def b = pop_u64();
+	def a = pop_u64();
+	push_u64(U64_rotl(a, b));
+}
+def I64_ROTR() {
+	def b = pop_u64();
+	def a = pop_u64();
+	push_u64(U64_rotr(a, b));
+}
+def I64_CLZ() {
+	def a = pop_u64();
+	push_u64(U64_clz(a));
+}
+def I64_CTZ() {
+	def a = pop_u64();
+	push_u64(U64_ctz(a));
+}
+def I64_POPCNT() {
+	def a = pop_u64();
+	push_u64(U64_popcnt(a));
+}
+def I64_EQZ() {
+	def a = pop_u64();
+	if (u64.==(a, 0)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I64_EQ() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (u64.==(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I64_NE() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (u64.!=(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I64_LT_S() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (U64_lt_s(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I64_LT_U() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (u64.<(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I64_LE_S() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (U64_le_s(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I64_LE_U() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (u64.<=(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I64_GT_S() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (U64_gt_s(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I64_GT_U() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (u64.>(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I64_GE_S() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (U64_ge_s(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I64_GE_U() {
+	def b = pop_u64();
+	def a = pop_u64();
+	if (u64.>=(a, b)) {
+		push_u32(1);
+	} else {
+		push_u32(0);
+	}
+}
+def I64_EXTEND8_S() {
+	def a = pop_u64();
+	def r = U64_extend8_s(a);
+	push_u64(r);
+}
+def I64_EXTEND16_S() {
+	def a = pop_u64();
+	def r = U64_extend16_s(a);
+	push_u64(r);
+}
+def I64_EXTEND32_S() {
+	def a = pop_u64();
+	def r = U64_extend32_s(a);
+	push_u64(r);
 }
 def F32_CONST() {
 	def x = imm_readULEB32();
@@ -653,8 +1037,9 @@ def F32_DIV() {
 	def a = pop_f32();
 	if (float.==(b, 0.0f)) {
 		trapDivideByZero();
+	} else {
+		push_f32(float./(a, b));
 	}
-	push_f32(float./(a, b));
 }
 def F32_SQRT() {
 	def a = pop_f32();
@@ -876,210 +1261,222 @@ def STRUCT_GET_U() {
 }
 def I32_LOAD() {
 	def flags = imm_readU8();
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) {
-		def memindex = imm_readULEB32();
+	var memindex = 0u;
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) {
+		memindex = imm_readULEB32();
 	}
-	def cond = m_isMemory64(0u);
+	def cond = m_isMemory64(memindex);
 	if (cond) {
 		def offset = imm_readULEB64();
 		def index = pop_u64();
-		def val = mach_readMemory64_u32(0u, index, offset);
+		def val = mach_readMemory64_u32(memindex, index, offset);
 		push_u32(val);
 	} else {
-		def offset1 = imm_readULEB32();
-		def index1 = pop_u32();
-		def val1 = mach_readMemory32_u32(0u, index1, offset1);
-		push_u32(val1);
+		def offset = imm_readULEB32();
+		def index = pop_u32();
+		def val = mach_readMemory32_u32(memindex, index, offset);
+		push_u32(val);
 	}
 }
 def I32_LOAD8_U() {
 	def flags = imm_readU8();
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) {
-		def memindex = imm_readULEB32();
+	var memindex = 0u;
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) {
+		memindex = imm_readULEB32();
 	}
-	def cond = m_isMemory64(0u);
+	def cond = m_isMemory64(memindex);
 	if (cond) {
 		def offset = imm_readULEB64();
 		def index = pop_u64();
-		def val = mach_readMemory64_u8(0u, index, offset);
+		def val = mach_readMemory64_u8(memindex, index, offset);
 		push_u32(val);
 	} else {
-		def offset1 = imm_readULEB32();
-		def index1 = pop_u32();
-		def val1 = mach_readMemory32_u8(0u, index1, offset1);
-		push_u32(val1);
+		def offset = imm_readULEB32();
+		def index = pop_u32();
+		def val = mach_readMemory32_u8(memindex, index, offset);
+		push_u32(val);
 	}
 }
 def I32_LOAD16_S() {
 	def flags = imm_readU8();
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) {
-		def memindex = imm_readULEB32();
+	var memindex = 0u;
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) {
+		memindex = imm_readULEB32();
 	}
-	def cond = m_isMemory64(0u);
+	def cond = m_isMemory64(memindex);
 	if (cond) {
 		def offset = imm_readULEB64();
 		def index = pop_u64();
-		def val = mach_readMemory64_u16(0u, index, offset);
+		def val = mach_readMemory64_u16(memindex, index, offset);
 		push_u32(val);
 	} else {
-		def offset1 = imm_readULEB32();
-		def index1 = pop_u32();
-		def val1 = mach_readMemory32_u16(0u, index1, offset1);
-		push_u32(val1);
+		def offset = imm_readULEB32();
+		def index = pop_u32();
+		def val = mach_readMemory32_u16(memindex, index, offset);
+		push_u32(val);
 	}
 }
 def I64_LOAD() {
 	def flags = imm_readU8();
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) {
-		def memindex = imm_readULEB32();
+	var memindex = 0u;
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) {
+		memindex = imm_readULEB32();
 	}
-	def cond = m_isMemory64(0u);
+	def cond = m_isMemory64(memindex);
 	if (cond) {
 		def offset = imm_readULEB64();
 		def index = pop_u64();
-		def val = mach_readMemory64_u64(0u, index, offset);
+		def val = mach_readMemory64_u64(memindex, index, offset);
 		push_u64(val);
 	} else {
-		def offset1 = imm_readULEB32();
-		def index1 = pop_u32();
-		def val1 = mach_readMemory32_u64(0u, index1, offset1);
-		push_u64(val1);
+		def offset = imm_readULEB32();
+		def index = pop_u32();
+		def val = mach_readMemory32_u64(memindex, index, offset);
+		push_u64(val);
 	}
 }
 def F32_LOAD() {
 	def flags = imm_readU8();
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) {
-		def memindex = imm_readULEB32();
+	var memindex = 0u;
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) {
+		memindex = imm_readULEB32();
 	}
-	def cond = m_isMemory64(0u);
+	def cond = m_isMemory64(memindex);
 	if (cond) {
 		def offset = imm_readULEB64();
 		def index = pop_u64();
-		def val = mach_readMemory64_f32(0u, index, offset);
+		def val = mach_readMemory64_f32(memindex, index, offset);
 		push_f32(val);
 	} else {
-		def offset1 = imm_readULEB32();
-		def index1 = pop_u32();
-		def val1 = mach_readMemory32_f32(0u, index1, offset1);
-		push_f32(val1);
+		def offset = imm_readULEB32();
+		def index = pop_u32();
+		def val = mach_readMemory32_f32(memindex, index, offset);
+		push_f32(val);
 	}
 }
 def F64_LOAD() {
 	def flags = imm_readU8();
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) {
-		def memindex = imm_readULEB32();
+	var memindex = 0u;
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) {
+		memindex = imm_readULEB32();
 	}
-	def cond = m_isMemory64(0u);
+	def cond = m_isMemory64(memindex);
 	if (cond) {
 		def offset = imm_readULEB64();
 		def index = pop_u64();
-		def val = mach_readMemory64_f64(0u, index, offset);
+		def val = mach_readMemory64_f64(memindex, index, offset);
 		push_f64(val);
 	} else {
-		def offset1 = imm_readULEB32();
-		def index1 = pop_u32();
-		def val1 = mach_readMemory32_f64(0u, index1, offset1);
-		push_f64(val1);
+		def offset = imm_readULEB32();
+		def index = pop_u32();
+		def val = mach_readMemory32_f64(memindex, index, offset);
+		push_f64(val);
 	}
 }
 def I32_STORE() {
 	def flags = imm_readU8();
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) {
-		def memindex = imm_readULEB32();
+	var memindex = 0u;
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) {
+		memindex = imm_readULEB32();
 	}
 	def val = pop_u32();
-	def cond = m_isMemory64(0u);
+	def cond = m_isMemory64(memindex);
 	if (cond) {
 		def offset = imm_readULEB64();
 		def index = pop_u64();
-		mach_writeMemory64_u32(0u, index, offset, val);
+		mach_writeMemory64_u32(memindex, index, offset, val);
 	} else {
-		def offset1 = imm_readULEB32();
-		def index1 = pop_u32();
-		mach_writeMemory32_u32(0u, index1, offset1, val);
+		def offset = imm_readULEB32();
+		def index = pop_u32();
+		mach_writeMemory32_u32(memindex, index, offset, val);
 	}
 }
 def I32_STORE8() {
 	def flags = imm_readU8();
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) {
-		def memindex = imm_readULEB32();
+	var memindex = 0u;
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) {
+		memindex = imm_readULEB32();
 	}
 	def val = pop_u32();
-	def cond = m_isMemory64(0u);
+	def cond = m_isMemory64(memindex);
 	if (cond) {
 		def offset = imm_readULEB64();
 		def index = pop_u64();
-		mach_writeMemory64_u8(0u, index, offset, val);
+		mach_writeMemory64_u8(memindex, index, offset, val);
 	} else {
-		def offset1 = imm_readULEB32();
-		def index1 = pop_u32();
-		mach_writeMemory32_u8(0u, index1, offset1, val);
+		def offset = imm_readULEB32();
+		def index = pop_u32();
+		mach_writeMemory32_u8(memindex, index, offset, val);
 	}
 }
 def I32_STORE16() {
 	def flags = imm_readU8();
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) {
-		def memindex = imm_readULEB32();
+	var memindex = 0u;
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) {
+		memindex = imm_readULEB32();
 	}
 	def val = pop_u32();
-	def cond = m_isMemory64(0u);
+	def cond = m_isMemory64(memindex);
 	if (cond) {
 		def offset = imm_readULEB64();
 		def index = pop_u64();
-		mach_writeMemory64_u16(0u, index, offset, val);
+		mach_writeMemory64_u16(memindex, index, offset, val);
 	} else {
-		def offset1 = imm_readULEB32();
-		def index1 = pop_u32();
-		mach_writeMemory32_u16(0u, index1, offset1, val);
+		def offset = imm_readULEB32();
+		def index = pop_u32();
+		mach_writeMemory32_u16(memindex, index, offset, val);
 	}
 }
 def I64_STORE() {
 	def flags = imm_readU8();
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) {
-		def memindex = imm_readULEB32();
+	var memindex = 0u;
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) {
+		memindex = imm_readULEB32();
 	}
 	def val = pop_u64();
-	def cond = m_isMemory64(0u);
+	def cond = m_isMemory64(memindex);
 	if (cond) {
 		def offset = imm_readULEB64();
 		def index = pop_u64();
-		mach_writeMemory64_u64(0u, index, offset, val);
+		mach_writeMemory64_u64(memindex, index, offset, val);
 	} else {
-		def offset1 = imm_readULEB32();
-		def index1 = pop_u32();
-		mach_writeMemory32_u64(0u, index1, offset1, val);
+		def offset = imm_readULEB32();
+		def index = pop_u32();
+		mach_writeMemory32_u64(memindex, index, offset, val);
 	}
 }
 def F32_STORE() {
 	def flags = imm_readU8();
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) {
-		def memindex = imm_readULEB32();
+	var memindex = 0u;
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) {
+		memindex = imm_readULEB32();
 	}
 	def val = pop_f32();
-	def cond = m_isMemory64(0u);
+	def cond = m_isMemory64(memindex);
 	if (cond) {
 		def offset = imm_readULEB64();
 		def index = pop_u64();
 	} else {
-		def offset1 = imm_readULEB32();
-		def index1 = pop_u32();
+		def offset = imm_readULEB32();
+		def index = pop_u32();
 	}
 }
 def F64_STORE() {
 	def flags = imm_readU8();
-	if (u8.==(u8.&(flags, HAS_MEM_INDEX), 0)) {
-		def memindex = imm_readULEB32();
+	var memindex = 0u;
+	if (u8.!=(u8.&(flags, 0x40u8), 0)) {
+		memindex = imm_readULEB32();
 	}
 	def val = pop_f64();
-	def cond = m_isMemory64(0u);
+	def cond = m_isMemory64(memindex);
 	if (cond) {
 		def offset = imm_readULEB64();
 		def index = pop_u64();
-		mach_writeMemory64_f64(0u, index, offset, val);
+		mach_writeMemory64_f64(memindex, index, offset, val);
 	} else {
-		def offset1 = imm_readULEB32();
-		def index1 = pop_u32();
-		mach_writeMemory32_f64(0u, index1, offset1, val);
+		def offset = imm_readULEB32();
+		def index = pop_u32();
+		mach_writeMemory32_f64(memindex, index, offset, val);
 	}
 }
 def build_dispatch_table() -> Array<void -> void> {
@@ -1112,7 +1509,58 @@ def build_dispatch_table() -> Array<void -> void> {
   DISPATCH_TABLE[Opcode.I32_LT_S.tag] = I32_LT_S;
   DISPATCH_TABLE[Opcode.I32_LE_S.tag] = I32_LE_S;
   DISPATCH_TABLE[Opcode.I32_GT_U.tag] = I32_GT_U;
+  DISPATCH_TABLE[Opcode.I32_LE_U.tag] = I32_LE_U;
+  DISPATCH_TABLE[Opcode.I32_GT_S.tag] = I32_GT_S;
+  DISPATCH_TABLE[Opcode.I32_GE_U.tag] = I32_GE_U;
+  DISPATCH_TABLE[Opcode.I32_GE_S.tag] = I32_GE_S;
   DISPATCH_TABLE[Opcode.I32_AND.tag] = I32_AND;
+  DISPATCH_TABLE[Opcode.I32_OR.tag] = I32_OR;
+  DISPATCH_TABLE[Opcode.I32_XOR.tag] = I32_XOR;
+  DISPATCH_TABLE[Opcode.I32_SHL.tag] = I32_SHL;
+  DISPATCH_TABLE[Opcode.I32_SHR_U.tag] = I32_SHR_U;
+  DISPATCH_TABLE[Opcode.I32_SHR_S.tag] = I32_SHR_S;
+  DISPATCH_TABLE[Opcode.I32_ROTL.tag] = I32_ROTL;
+  DISPATCH_TABLE[Opcode.I32_ROTR.tag] = I32_ROTR;
+  DISPATCH_TABLE[Opcode.I32_CLZ.tag] = I32_CLZ;
+  DISPATCH_TABLE[Opcode.I32_CTZ.tag] = I32_CTZ;
+  DISPATCH_TABLE[Opcode.I32_POPCNT.tag] = I32_POPCNT;
+  DISPATCH_TABLE[Opcode.I32_REM_S.tag] = I32_REM_S;
+  DISPATCH_TABLE[Opcode.I32_REM_U.tag] = I32_REM_U;
+  DISPATCH_TABLE[Opcode.I32_EXTEND8_S.tag] = I32_EXTEND8_S;
+  DISPATCH_TABLE[Opcode.I32_EXTEND16_S.tag] = I32_EXTEND16_S;
+  DISPATCH_TABLE[Opcode.I64_CONST.tag] = I64_CONST;
+  DISPATCH_TABLE[Opcode.I64_ADD.tag] = I64_ADD;
+  DISPATCH_TABLE[Opcode.I64_SUB.tag] = I64_SUB;
+  DISPATCH_TABLE[Opcode.I64_MUL.tag] = I64_MUL;
+  DISPATCH_TABLE[Opcode.I64_DIV_S.tag] = I64_DIV_S;
+  DISPATCH_TABLE[Opcode.I64_DIV_U.tag] = I64_DIV_U;
+  DISPATCH_TABLE[Opcode.I64_REM_S.tag] = I64_REM_S;
+  DISPATCH_TABLE[Opcode.I64_REM_U.tag] = I64_REM_U;
+  DISPATCH_TABLE[Opcode.I64_AND.tag] = I64_AND;
+  DISPATCH_TABLE[Opcode.I64_OR.tag] = I64_OR;
+  DISPATCH_TABLE[Opcode.I64_XOR.tag] = I64_XOR;
+  DISPATCH_TABLE[Opcode.I64_SHL.tag] = I64_SHL;
+  DISPATCH_TABLE[Opcode.I64_SHR_U.tag] = I64_SHR_U;
+  DISPATCH_TABLE[Opcode.I64_SHR_S.tag] = I64_SHR_S;
+  DISPATCH_TABLE[Opcode.I64_ROTL.tag] = I64_ROTL;
+  DISPATCH_TABLE[Opcode.I64_ROTR.tag] = I64_ROTR;
+  DISPATCH_TABLE[Opcode.I64_CLZ.tag] = I64_CLZ;
+  DISPATCH_TABLE[Opcode.I64_CTZ.tag] = I64_CTZ;
+  DISPATCH_TABLE[Opcode.I64_POPCNT.tag] = I64_POPCNT;
+  DISPATCH_TABLE[Opcode.I64_EQZ.tag] = I64_EQZ;
+  DISPATCH_TABLE[Opcode.I64_EQ.tag] = I64_EQ;
+  DISPATCH_TABLE[Opcode.I64_NE.tag] = I64_NE;
+  DISPATCH_TABLE[Opcode.I64_LT_S.tag] = I64_LT_S;
+  DISPATCH_TABLE[Opcode.I64_LT_U.tag] = I64_LT_U;
+  DISPATCH_TABLE[Opcode.I64_LE_S.tag] = I64_LE_S;
+  DISPATCH_TABLE[Opcode.I64_LE_U.tag] = I64_LE_U;
+  DISPATCH_TABLE[Opcode.I64_GT_S.tag] = I64_GT_S;
+  DISPATCH_TABLE[Opcode.I64_GT_U.tag] = I64_GT_U;
+  DISPATCH_TABLE[Opcode.I64_GE_S.tag] = I64_GE_S;
+  DISPATCH_TABLE[Opcode.I64_GE_U.tag] = I64_GE_U;
+  DISPATCH_TABLE[Opcode.I64_EXTEND8_S.tag] = I64_EXTEND8_S;
+  DISPATCH_TABLE[Opcode.I64_EXTEND16_S.tag] = I64_EXTEND16_S;
+  DISPATCH_TABLE[Opcode.I64_EXTEND32_S.tag] = I64_EXTEND32_S;
   DISPATCH_TABLE[Opcode.F32_CONST.tag] = F32_CONST;
   DISPATCH_TABLE[Opcode.F32_ADD.tag] = F32_ADD;
   DISPATCH_TABLE[Opcode.F32_SUB.tag] = F32_SUB;
