@@ -8,3 +8,8 @@ tmp
 
 # IDEs
 .vscode/
+
+src/engine/cbd/CBDInterpreter.v3
+src/engine/cbd/CBDValidator.v3
+src/engine/cbd/TypeVar.v3
+src/engine/cbd/Types.v3
