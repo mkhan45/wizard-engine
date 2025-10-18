@@ -5,7 +5,8 @@ component Target {
 	var unused_ = ExecuteOptions.registerDefaultMode("cbd-int", CBDInterpreterOnlyStrategy.new(), "CBD interpreter only");
 
 	// copied from V3Target.v3
- 	def limit_memory_pages = 30000u;
+	def limit_memory_size = 30000uL * 0x1_0000u;
+	def limit_memory_size_64 = 30000uL * 0x1_0000u;
  	def newMemory = V3Memory.new;
  	def forceGC() { } // nop
  	def ticksNs() -> u64 { return u32.view(System.ticksNs()); }
