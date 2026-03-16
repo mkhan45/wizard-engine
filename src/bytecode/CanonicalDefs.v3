@@ -1473,8 +1473,9 @@ def REF_AS_NON_NULL() {
 	var obj = pop_Object();
 	if (object_isNull(obj)) {
 		trapNull();
-	}
-	push_Object(obj); // XXX: wonder if we can optimize out pop->test->push in CBD
+	} else {
+        push_Object(obj); // XXX: wonder if we can optimize out pop->test->push in CBD
+    }
 }
 // missing 0xD5 BR_ON_NULL
 // missing 0xD6 BR_ON_NON_NULL
